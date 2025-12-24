@@ -10,6 +10,7 @@ sys.path.insert(0, str(Path(__file__).parent))
 from models import Problem
 from solvers import GreedySolver
 from evaluation import WeightedEvaluator
+from output_generator import generate_outputs
 
 
 def main():
@@ -21,11 +22,13 @@ def main():
     print("FLEXIBLE JOB SHOP SCHEDULING PROBLEM SOLVER")
     print("=" * 60)
 
-    # Load config to get data file path
+    # Load config to get data file path and sheet dimensions
     with open(config_path, 'r') as f:
         config = json.load(f)
 
     data_file = config.get("data_file", "data/5693_cleaned.xlsx")
+    sheet_x = config.get("sheet_X", 2.0)  # Sheet width in meters
+    sheet_y = config.get("sheet_Y", 1.8)  # Sheet height in meters
 
     # Check if data file exists
     if not Path(data_file).exists():
@@ -43,8 +46,9 @@ def main():
     print(f"  - Parts: {problem.num_parts()}")
     print(f"  - Products: {problem.num_products()}")
     print(f"  - Stations: {len(problem.stations)}")
-    print(f"  - Sheet capacity: {problem.sheet_capacity} m²")
-    print(f"  - Total parts area: {problem.total_parts_area():.4f} m²")
+    print(f"  - Sheet capacity: {problem.sheet_capacity} m2")
+    print(f"  - Sheet dimensions: {sheet_x}m x {sheet_y}m")
+    print(f"  - Total parts area: {problem.total_parts_area():.4f} m2")
     print(f"  - Materials: {len(problem.get_unique_materials())}")
 
     # Create evaluator
@@ -74,10 +78,12 @@ def main():
     # Validate solution
     print(f"\nSolution valid: {solution.is_valid(problem)}")
 
-    # Show some sheet details
-    print("\nFirst 5 sheets:")
-    for sheet in solution.sheets[:5]:
-        print(f"  {sheet}")
+    # Generate outputs (CSV files and sheet images)
+    output_folder = generate_outputs(solution, problem, data_file, sheet_x, sheet_y)
+
+    print(f"\n" + "=" * 60)
+    print(f"COMPLETED - Output folder: {output_folder}")
+    print("=" * 60)
 
     return solution
 
@@ -85,7 +91,6 @@ def main():
 def run_with_sample_data():
     """Run solver with sample data for demonstration."""
     import pandas as pd
-    import json
 
     # Create sample data
     sample_data = {
@@ -117,8 +122,8 @@ def run_with_sample_data():
     print(f"  - Parts: {problem.num_parts()}")
     print(f"  - Products: {problem.num_products()}")
     print(f"  - Stations: {len(problem.stations)}")
-    print(f"  - Sheet capacity: {problem.sheet_capacity} m²")
-    print(f"  - Total parts area: {problem.total_parts_area():.4f} m²")
+    print(f"  - Sheet capacity: {problem.sheet_capacity} m2")
+    print(f"  - Total parts area: {problem.total_parts_area():.4f} m2")
 
     # Create evaluator and solver
     evaluator = WeightedEvaluator(alpha=1.0, beta=0.5)
@@ -141,13 +146,6 @@ def run_with_sample_data():
     print("\nAll sheets:")
     for sheet in solution.sheets:
         print(f"  {sheet}")
-
-    # Show schedule for first sheet
-    if solution.sheets:
-        first_sheet = solution.sheets[0]
-        print(f"\nSchedule for {first_sheet.id}:")
-        for assignment in solution.schedule.get(first_sheet.id, []):
-            print(f"  {assignment}")
 
 
 if __name__ == "__main__":

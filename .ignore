@@ -1,0 +1,6 @@
+# Ignore output directories
+/output/
+/build/
+/dist/
+/bin/
+/out/
