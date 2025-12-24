@@ -9,7 +9,7 @@
     {"name": "wv", "order_index": 5, "num_machines": 1},
     {"name": "wx", "order_index": 6, "num_machines": 1}
   ],
-  "sheet_capacity": 3.6,
-  "sheet_Y": 1.8,
-  "sheet_X": 2
+  "sheet_capacity": 6,
+  "sheet_Y": 2,
+  "sheet_X": 3
 }

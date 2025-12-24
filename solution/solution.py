@@ -98,14 +98,44 @@ class Solution:
 
         Validates:
         1. Sheet capacity constraint
-        2. Part assignment constraint (each part assigned exactly once)
-        3. Station order constraint
-        4. Non-preemption (implicit in assignment structure)
+        2. Sheet size/placement constraint (within sheet bounds, no overlaps)
+        3. Part assignment constraint (each part assigned exactly once)
+        4. Station order constraint
+        5. Non-preemption (implicit in assignment structure)
         """
         # 1. Check sheet capacity constraint
         for sheet in self.sheets:
             if sheet.total_area() > sheet.capacity + 1e-9:  # Small tolerance for floating point
                 return False
+
+            if sheet.placements:
+                if len(sheet.placements) != len(sheet.assigned_parts):
+                    return False
+                rects = []
+                for part in sheet.assigned_parts:
+                    placement = sheet.placements.get(part.id)
+                    if placement is None:
+                        return False
+                    x, y, w, h, _ = placement
+                    if x < -1e-9 or y < -1e-9:
+                        return False
+                    if x + w > sheet.width + 1e-9 or y + h > sheet.height + 1e-9:
+                        return False
+                    rects.append((x, y, w, h))
+
+                for i in range(len(rects)):
+                    ax, ay, aw, ah = rects[i]
+                    for j in range(i + 1, len(rects)):
+                        bx, by, bw, bh = rects[j]
+                        if not (ax + aw <= bx + 1e-9 or bx + bw <= ax + 1e-9 or
+                                ay + ah <= by + 1e-9 or by + bh <= ay + 1e-9):
+                            return False
+            else:
+                for part in sheet.assigned_parts:
+                    w = part.width / 1000.0
+                    h = part.length / 1000.0
+                    if not ((w <= sheet.width and h <= sheet.height) or (h <= sheet.width and w <= sheet.height)):
+                        return False
 
         # 2. Check part assignment constraint
         assigned_parts: Set[str] = set()

@@ -50,7 +50,12 @@ class GreedySolver(Solver):
         sorted_parts = self._sort_parts(problem.parts)
 
         # Step 2: Pack parts into sheets (bin packing)
-        sheets = self._pack_parts(sorted_parts, problem.sheet_capacity)
+        sheets = self._pack_parts(
+            sorted_parts,
+            problem.sheet_capacity,
+            problem.sheet_width,
+            problem.sheet_height
+        )
 
         # Step 3: Schedule sheets through stations
         solution = self._schedule_sheets(sheets, problem)
@@ -72,13 +77,21 @@ class GreedySolver(Solver):
         else:  # 'none'
             return list(parts)
 
-    def _pack_parts(self, parts: List[Part], sheet_capacity: float) -> List[Sheet]:
+    def _pack_parts(
+        self,
+        parts: List[Part],
+        sheet_capacity: float,
+        sheet_width: float,
+        sheet_height: float
+    ) -> List[Sheet]:
         """
         Pack parts into sheets using First Fit algorithm.
 
         Args:
             parts: Sorted list of parts
             sheet_capacity: Maximum capacity per sheet
+            sheet_width: Sheet width in meters
+            sheet_height: Sheet height in meters
 
         Returns:
             List of sheets with assigned parts
@@ -91,8 +104,7 @@ class GreedySolver(Solver):
 
             # Try to fit in existing sheets
             for sheet in sheets:
-                if sheet.can_fit(part):
-                    sheet.add_part(part)
+                if sheet.add_part(part):
                     placed = True
                     break
 
@@ -100,9 +112,15 @@ class GreedySolver(Solver):
             if not placed:
                 new_sheet = Sheet(
                     id=f"sheet_{sheet_counter:05d}",
-                    capacity=sheet_capacity
+                    capacity=sheet_capacity,
+                    width=sheet_width,
+                    height=sheet_height
                 )
-                new_sheet.add_part(part)
+                if not new_sheet.add_part(part):
+                    raise ValueError(
+                        f"Part {part.id} ({part.length}x{part.width}mm) "
+                        f"cannot fit in sheet {sheet_width}x{sheet_height}m."
+                    )
                 sheets.append(new_sheet)
                 sheet_counter += 1
 

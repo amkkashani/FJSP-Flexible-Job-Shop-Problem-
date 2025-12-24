@@ -23,11 +23,17 @@ class Problem:
         products: Products indexed by product_id
         stations: Ordered list of stations
         sheet_capacity: Maximum area per sheet in m²
+        sheet_width: Sheet width in meters
+        sheet_height: Sheet height in meters
+        sheet_width: Sheet width in meters
+        sheet_height: Sheet height in meters
     """
     parts: List[Part] = field(default_factory=list)
     products: Dict[str, Product] = field(default_factory=dict)
     stations: List[Station] = field(default_factory=list)
     sheet_capacity: float = 5.0
+    sheet_width: float = 2.0
+    sheet_height: float = 1.8
 
     def get_parts_by_product(self, product_id: str) -> List[Part]:
         """Get all parts for a product."""
@@ -72,7 +78,7 @@ class Problem:
         Args:
             df: DataFrame with columns: ElemIdent, length, width, area, mat, quantity, Info8,
                 and station columns (wa, wf, wd, wo, wg, wv, wx)
-            station_config: Dict with 'stations' list and 'sheet_capacity'
+            station_config: Dict with 'stations' list, 'sheet_capacity', 'sheet_X', 'sheet_Y'
 
         Returns:
             Problem instance
@@ -141,11 +147,18 @@ class Problem:
             products[part.product_id].add_part(part.id)
 
         # 4. Create and return problem
+        sheet_width = float(station_config.get("sheet_X", 2.0))
+        sheet_height = float(station_config.get("sheet_Y", 1.8))
+        raw_capacity = float(station_config.get("sheet_capacity", sheet_width * sheet_height))
+        sheet_capacity = min(raw_capacity, sheet_width * sheet_height)
+
         return cls(
             parts=parts,
             products=products,
             stations=stations,
-            sheet_capacity=station_config.get("sheet_capacity", 5.0)
+            sheet_capacity=sheet_capacity,
+            sheet_width=sheet_width,
+            sheet_height=sheet_height
         )
 
     @classmethod
@@ -171,4 +184,5 @@ class Problem:
 
     def __repr__(self) -> str:
         return (f"Problem(parts={self.num_parts()}, products={self.num_products()}, "
-                f"stations={len(self.stations)}, sheet_capacity={self.sheet_capacity}m²)")
+                f"stations={len(self.stations)}, sheet_capacity={self.sheet_capacity}m², "
+                f"sheet_size={self.sheet_width}x{self.sheet_height}m)")

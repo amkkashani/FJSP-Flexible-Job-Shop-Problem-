@@ -239,7 +239,7 @@ Each sheet image shows:
 1. **Sheet Boundary**: Gray rectangle representing the sheet
 2. **Parts**: Colored rectangles representing parts
    - Color coded by product
-   - Labels show product ID and area
+   - Labels show part ID; "(R)" indicates a rotated part
 3. **Title**: Sheet statistics
    - Sheet ID
    - Number of parts
@@ -265,7 +265,7 @@ sheet_00077.png
 
 #### Current Limitations
 
-The current visualization uses a simplified layout (stacking parts). In future versions with 2D bin packing optimization, actual x,y positions will be displayed.
+The visualization uses a shelf-based 2D placement with rotation. It shows actual part positions inside the sheet, but the placement is heuristic and may not be globally optimal.
 
 #### Use Cases
 

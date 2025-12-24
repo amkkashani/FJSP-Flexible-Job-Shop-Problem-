@@ -98,19 +98,21 @@ This value is used for bin packing. Parts are assigned to sheets such that:
 sum(part.area for part in sheet) <= sheet_capacity
 ```
 
+If `sheet_capacity` is larger than `sheet_X * sheet_Y`, the solver caps it to the sheet area.
+
 ---
 
 ### sheet_X
 
 **Type:** float
-**Required:** No (used for visualization)
+**Required:** No (used for packing and visualization)
 **Unit:** meters
 **Default:** `2.0`
 **Example:** `2`
 
 Sheet width in meters. Used for:
+- 2D placement inside the sheet
 - Sheet image generation
-- Future 2D bin packing optimization
 
 ```json
 "sheet_X": 2
@@ -121,20 +123,20 @@ Sheet width in meters. Used for:
 ### sheet_Y
 
 **Type:** float
-**Required:** No (used for visualization)
+**Required:** No (used for packing and visualization)
 **Unit:** meters
 **Default:** `1.8`
 **Example:** `1.8`
 
 Sheet height in meters. Used for:
+- 2D placement inside the sheet
 - Sheet image generation
-- Future 2D bin packing optimization
 
 ```json
 "sheet_Y": 1.8
 ```
 
-**Note:** `sheet_X * sheet_Y` should equal `sheet_capacity` for proper visualization.
+**Note:** `sheet_X * sheet_Y` should be at least `sheet_capacity`. If not, the solver caps capacity to the sheet area.
 
 ---
 
@@ -311,5 +313,6 @@ Check that station column names in Excel match the `name` values in config.
 ### Parts not fitting in sheets
 
 - Check `sheet_capacity` is large enough
+- Ensure `sheet_X` and `sheet_Y` can hold the part length/width (rotation allowed)
 - Verify `area` values in Excel are in m² (not mm²)
 - Ensure `area / quantity` for each row is less than `sheet_capacity`

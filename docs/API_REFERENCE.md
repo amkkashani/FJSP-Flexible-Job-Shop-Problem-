@@ -114,7 +114,7 @@ station = Station(name="wa", order_index=0, num_machines=2)
 from models import Sheet
 ```
 
-A container (bin) that holds multiple parts based on area capacity.
+A container (bin) that holds multiple parts based on area and size.
 
 #### Attributes
 
@@ -122,7 +122,10 @@ A container (bin) that holds multiple parts based on area capacity.
 |-----------|------|-------------|
 | `id` | str | Unique identifier (e.g., "sheet_00001") |
 | `capacity` | float | Maximum area in m² |
+| `width` | float | Sheet width in meters |
+| `height` | float | Sheet height in meters |
 | `assigned_parts` | List[Part] | Parts assigned to this sheet |
+| `placements` | Dict[str, tuple] | Part placement (x, y, w, h, rotated) |
 
 #### Methods
 
@@ -133,15 +136,15 @@ A container (bin) that holds multiple parts based on area capacity.
 | `waste()` | float | Unused area (same as remaining_capacity) |
 | `get_station_time(station_name)` | float | Sum of process times for all parts at station |
 | `is_empty()` | bool | True if no parts assigned |
-| `can_fit(part)` | bool | Check if part can fit in remaining capacity |
-| `add_part(part)` | bool | Add part if it fits, returns success status |
+| `can_fit(part, allow_rotate=True)` | bool | Check if part can fit in remaining capacity and sheet size |
+| `add_part(part, allow_rotate=True)` | bool | Add part if it fits, returns success status |
 | `num_parts()` | int | Number of parts in sheet |
 | `get_part_ids()` | List[str] | List of part IDs in sheet |
 
 #### Example
 
 ```python
-sheet = Sheet(id="sheet_00001", capacity=3.6)
+sheet = Sheet(id="sheet_00001", capacity=3.6, width=2.0, height=1.8)
 
 part1 = Part(id="p1", ..., area=1.5)
 part2 = Part(id="p2", ..., area=1.0)
@@ -173,6 +176,8 @@ Encapsulates the entire problem instance.
 | `products` | Dict[str, Product] | Products indexed by product_id |
 | `stations` | List[Station] | Ordered list of stations |
 | `sheet_capacity` | float | Maximum area per sheet in m² |
+| `sheet_width` | float | Sheet width in meters |
+| `sheet_height` | float | Sheet height in meters |
 
 #### Class Methods
 

@@ -158,6 +158,8 @@ The configuration file `config/stations.json` contains all settings:
 | `sheet_X` | float | Sheet width in meters |
 | `sheet_Y` | float | Sheet height in meters |
 
+`sheet_X` and `sheet_Y` are used for 2D placement and image generation. If `sheet_capacity` exceeds `sheet_X * sheet_Y`, the solver caps it to the sheet area.
+
 ---
 
 ## Input Data Format
@@ -261,14 +263,17 @@ class Product:
 ```
 
 ### Sheet
-A container that holds multiple parts based on area capacity.
+A container that holds multiple parts based on area and size.
 
 ```python
 @dataclass
 class Sheet:
     id: str                    # Unique identifier
     capacity: float            # Maximum area in m²
+    width: float               # Sheet width in meters
+    height: float              # Sheet height in meters
     assigned_parts: list[Part] # Assigned parts
+    placements: dict           # Part placement (x, y, w, h, rotated)
 ```
 
 Key methods:
@@ -276,7 +281,7 @@ Key methods:
 - `remaining_capacity()` - Available space
 - `waste()` - Unused area
 - `get_station_time(station)` - Total processing time at a station
-- `can_fit(part)` - Check if part fits
+- `can_fit(part)` - Check if part fits within remaining area and sheet size
 
 ### Station
 A processing station with parallel machines.
@@ -308,9 +313,10 @@ class Solution:
 
 1. Sort parts by area in descending order
 2. For each part:
-   - Try to fit in existing sheets (first-fit)
-   - If no sheet can fit, create a new sheet
-3. Result: Parts packed into minimum sheets
+   - Try to place in existing sheets (first-fit shelf placement)
+   - Respect sheet size (sheet_X/sheet_Y) and allow 90-degree rotation
+   - If no sheet can place it, create a new sheet
+3. Result: Parts packed into sheets with 2D positions
 
 ### Scheduling: FIFO
 
@@ -417,10 +423,11 @@ for sheet in solution.sheets:
 The solver ensures these constraints are satisfied:
 
 1. **Sheet Capacity**: `sum(part.area) <= sheet.capacity`
-2. **Part Assignment**: Each part assigned to exactly one sheet
-3. **Station Order**: Sheets visit stations in order: wa → wf → wd → wo → wg → wv → wx
-4. **Station Capacity**: At most `num_machines` sheets processing simultaneously
-5. **Non-preemption**: Once started, processing cannot be interrupted
+2. **Sheet Size**: Each part fits within `sheet_X` x `sheet_Y` (rotation allowed)
+3. **Part Assignment**: Each part assigned to exactly one sheet
+4. **Station Order**: Sheets visit stations in order: wa → wf → wd → wo → wg → wv → wx
+5. **Station Capacity**: At most `num_machines` sheets processing simultaneously
+6. **Non-preemption**: Once started, processing cannot be interrupted
 
 ---
 
@@ -429,7 +436,7 @@ The solver ensures these constraints are satisfied:
 The system is designed to support:
 
 1. **Material Constraint**: Parts on same sheet must have same material
-2. **2D Bin Packing**: Consider x, y positions (not just area)
+2. **Advanced 2D Bin Packing**: More optimal placement heuristics beyond shelf packing
 3. **Due Dates**: Products have deadlines with tardiness penalties
 4. **Setup Times**: Material changes require setup time
 5. **Alternative Solvers**: Genetic Algorithm, Simulated Annealing

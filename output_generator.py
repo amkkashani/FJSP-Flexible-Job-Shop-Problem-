@@ -62,9 +62,6 @@ class OutputGenerator:
         """
         Generate an image for a single sheet showing parts placement.
 
-        Currently shows parts as labeled boxes (area-based).
-        Future: Will show actual 2D placement optimization.
-
         Args:
             sheet: The sheet to visualize
             output_path: Path to save the image
@@ -75,9 +72,11 @@ class OutputGenerator:
             return
 
         fig, ax = plt.subplots(1, 1, figsize=(12, 9))
+        draw_width = sheet.width or sheet_width
+        draw_height = sheet.height or sheet_height
 
         # Draw sheet boundary
-        sheet_rect = Rectangle((0, 0), sheet_width, sheet_height,
+        sheet_rect = Rectangle((0, 0), draw_width, draw_height,
                                linewidth=3, edgecolor='black',
                                facecolor='lightgray', alpha=0.3)
         ax.add_patch(sheet_rect)
@@ -94,56 +93,67 @@ class OutputGenerator:
         colors = plt.cm.Set3(range(len(products)))
         product_colors = {pid: colors[i] for i, pid in enumerate(products.keys())}
 
-        # Simple layout: stack parts vertically (for visualization only)
-        # Future: This will be replaced with actual 2D bin packing positions
-        y_offset = 0.05
-        x_offset = 0.05
-        current_x = x_offset
-        current_y = y_offset
-        row_height = 0
-        padding = 0.02
+        use_placements = bool(sheet.placements)
 
-        for part in sorted(parts, key=lambda p: p.area, reverse=True):
-            # Convert part dimensions to meters for display
-            part_w = part.width / 1000  # mm to m
-            part_h = part.length / 1000  # mm to m
+        if use_placements:
+            for part in parts:
+                placement = sheet.placements.get(part.id)
+                if placement is None:
+                    continue
+                x, y, w, h, rotated = placement
+                color = product_colors[part.product_id]
+                part_rect = Rectangle((x, y), w, h,
+                                      linewidth=1, edgecolor='black',
+                                      facecolor=color, alpha=0.7)
+                ax.add_patch(part_rect)
 
-            # Scale to fit in sheet (simplified visualization)
-            scale = min(0.3, (sheet_width - 0.1) / max(part_w, 0.1))
-            display_w = min(part_w * scale, sheet_width - 0.1)
-            display_h = min(part_h * scale, sheet_height - 0.1)
+                label = part.id
+                if rotated:
+                    label = f"{label} (R)"
+                ax.text(x + w / 2, y + h / 2,
+                        label, ha='center', va='center', fontsize=5,
+                        wrap=True)
+        else:
+            y_offset = 0.05
+            x_offset = 0.05
+            current_x = x_offset
+            current_y = y_offset
+            row_height = 0
+            padding = 0.02
 
-            # Check if we need to move to next row
-            if current_x + display_w > sheet_width - x_offset:
-                current_x = x_offset
-                current_y += row_height + padding
-                row_height = 0
+            for part in sorted(parts, key=lambda p: p.area, reverse=True):
+                part_w = part.width / 1000
+                part_h = part.length / 1000
 
-            # Check if we've exceeded sheet height
-            if current_y + display_h > sheet_height - y_offset:
-                # Just note that we've run out of space for visualization
-                break
+                scale = min(0.3, (draw_width - 0.1) / max(part_w, 0.1))
+                display_w = min(part_w * scale, draw_width - 0.1)
+                display_h = min(part_h * scale, draw_height - 0.1)
 
-            # Draw part rectangle
-            color = product_colors[part.product_id]
-            part_rect = Rectangle((current_x, current_y), display_w, display_h,
-                                  linewidth=1, edgecolor='black',
-                                  facecolor=color, alpha=0.7)
-            ax.add_patch(part_rect)
+                if current_x + display_w > draw_width - x_offset:
+                    current_x = x_offset
+                    current_y += row_height + padding
+                    row_height = 0
 
-            # Add part label
-            label = f"{part.product_id[:10]}\n{part.area:.3f}m2"
-            ax.text(current_x + display_w/2, current_y + display_h/2,
-                   label, ha='center', va='center', fontsize=6,
-                   wrap=True)
+                if current_y + display_h > draw_height - y_offset:
+                    break
 
-            # Update position
-            current_x += display_w + padding
-            row_height = max(row_height, display_h)
+                color = product_colors[part.product_id]
+                part_rect = Rectangle((current_x, current_y), display_w, display_h,
+                                      linewidth=1, edgecolor='black',
+                                      facecolor=color, alpha=0.7)
+                ax.add_patch(part_rect)
+
+                label = f"{part.product_id[:10]}\n{part.area:.3f}m2"
+                ax.text(current_x + display_w/2, current_y + display_h/2,
+                       label, ha='center', va='center', fontsize=6,
+                       wrap=True)
+
+                current_x += display_w + padding
+                row_height = max(row_height, display_h)
 
         # Set axis properties
-        ax.set_xlim(-0.1, sheet_width + 0.1)
-        ax.set_ylim(-0.1, sheet_height + 0.1)
+        ax.set_xlim(-0.1, draw_width + 0.1)
+        ax.set_ylim(-0.1, draw_height + 0.1)
         ax.set_aspect('equal')
         ax.set_xlabel('Width (m)')
         ax.set_ylabel('Height (m)')
@@ -158,16 +168,14 @@ class OutputGenerator:
         ax.set_title(title, fontsize=10)
 
         # Add legend for products
-        legend = None
         legend_handles = []
         for pid in sorted(products.keys()):
             part_ids = sorted({p.id for p in products[pid]})
             row_ids = ", ".join(part_ids)
             label = f"{pid[:15]} ({row_ids})"
             legend_handles.append(patches.Patch(color=product_colors[pid], label=label))
-        if len(legend_handles) <= 10:
-            legend = ax.legend(handles=legend_handles, loc='upper left',
-                              bbox_to_anchor=(1.02, 1), fontsize=8)
+        legend = ax.legend(handles=legend_handles, loc='upper left',
+                          bbox_to_anchor=(1.02, 1), fontsize=8)
 
         save_kwargs = {"dpi": 150, "bbox_inches": "tight"}
         if legend is not None:

@@ -47,7 +47,7 @@ def main():
     print(f"  - Products: {problem.num_products()}")
     print(f"  - Stations: {len(problem.stations)}")
     print(f"  - Sheet capacity: {problem.sheet_capacity} m2")
-    print(f"  - Sheet dimensions: {sheet_x}m x {sheet_y}m")
+    print(f"  - Sheet dimensions: {problem.sheet_width}m x {problem.sheet_height}m")
     print(f"  - Total parts area: {problem.total_parts_area():.4f} m2")
     print(f"  - Materials: {len(problem.get_unique_materials())}")
 
@@ -79,7 +79,13 @@ def main():
     print(f"\nSolution valid: {solution.is_valid(problem)}")
 
     # Generate outputs (CSV files and sheet images)
-    output_folder = generate_outputs(solution, problem, data_file, sheet_x, sheet_y)
+    output_folder = generate_outputs(
+        solution,
+        problem,
+        data_file,
+        problem.sheet_width,
+        problem.sheet_height
+    )
 
     print(f"\n" + "=" * 60)
     print(f"COMPLETED - Output folder: {output_folder}")
