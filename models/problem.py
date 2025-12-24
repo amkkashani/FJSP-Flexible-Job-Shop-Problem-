@@ -98,7 +98,18 @@ class Problem:
             quantity = int(row.get("quantity", 1))
             # Area per individual part (divide total area by quantity)
             area_per_part = float(row["area"]) / quantity if quantity > 0 else float(row["area"])
-            row_id = f"row_{row_pos:05d}"
+            row_id_val = row.get("row_id", None)
+            row_id = None
+            if row_id_val is not None and pd.notna(row_id_val):
+                if isinstance(row_id_val, (int, float)) and not isinstance(row_id_val, bool):
+                    if float(row_id_val).is_integer():
+                        row_id = f"row_{int(row_id_val):05d}"
+                elif isinstance(row_id_val, str):
+                    row_id = row_id_val.strip()
+                    if row_id.isdigit():
+                        row_id = f"row_{int(row_id):05d}"
+            if not row_id:
+                row_id = f"row_{row_pos:05d}"
 
             for i in range(quantity):
                 # Build process times dict

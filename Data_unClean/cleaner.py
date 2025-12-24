@@ -60,6 +60,8 @@ def load_clean(path: str) -> pd.DataFrame:
         raise KeyError(f"Missing columns in input file: {missing}")
 
     df_out = df[out_cols].copy()
+    row_ids = [f"row_{i:05d}" for i in range(1, len(df_out) + 1)]
+    df_out.insert(0, "row_id", row_ids)
 
     # Rename مساحت → area
     df_out = df_out.rename(columns={"مساحت": "area"})

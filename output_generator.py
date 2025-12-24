@@ -132,7 +132,7 @@ class OutputGenerator:
             ax.add_patch(part_rect)
 
             # Add part label
-            label = f"{part.id}\n{part.product_id[:10]}\n{part.area:.3f}m2"
+            label = f"{part.product_id[:10]}\n{part.area:.3f}m2"
             ax.text(current_x + display_w/2, current_y + display_h/2,
                    label, ha='center', va='center', fontsize=6,
                    wrap=True)
@@ -158,14 +158,21 @@ class OutputGenerator:
         ax.set_title(title, fontsize=10)
 
         # Add legend for products
-        legend_handles = [patches.Patch(color=product_colors[pid], label=pid[:15])
-                         for pid in sorted(products.keys())]
+        legend = None
+        legend_handles = []
+        for pid in sorted(products.keys()):
+            part_ids = sorted({p.id for p in products[pid]})
+            row_ids = ", ".join(part_ids)
+            label = f"{pid[:15]} ({row_ids})"
+            legend_handles.append(patches.Patch(color=product_colors[pid], label=label))
         if len(legend_handles) <= 10:
-            ax.legend(handles=legend_handles, loc='upper left',
-                     bbox_to_anchor=(1.02, 1), fontsize=8)
+            legend = ax.legend(handles=legend_handles, loc='upper left',
+                              bbox_to_anchor=(1.02, 1), fontsize=8)
 
-        plt.tight_layout()
-        plt.savefig(output_path, dpi=150, bbox_inches='tight')
+        save_kwargs = {"dpi": 150, "bbox_inches": "tight"}
+        if legend is not None:
+            save_kwargs["bbox_extra_artists"] = (legend,)
+        plt.savefig(output_path, **save_kwargs)
         plt.close()
 
     def generate_all_sheet_images(self, sheet_width: float = 2.0, sheet_height: float = 1.8):
