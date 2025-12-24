@@ -93,12 +93,12 @@ class Problem:
 
         # 2. Expand parts by quantity
         parts = []
-        part_counter = 0
 
-        for _, row in df.iterrows():
+        for row_pos, (_, row) in enumerate(df.iterrows(), start=1):
             quantity = int(row.get("quantity", 1))
             # Area per individual part (divide total area by quantity)
             area_per_part = float(row["area"]) / quantity if quantity > 0 else float(row["area"])
+            row_id = f"row_{row_pos:05d}"
 
             for i in range(quantity):
                 # Build process times dict
@@ -109,8 +109,9 @@ class Problem:
                     else:
                         process_times[station_name] = 0.0
 
+                part_id = row_id if quantity == 1 else f"{row_id}_{i + 1:03d}"
                 part = Part(
-                    id=f"part_{part_counter:05d}",
+                    id=part_id,
                     elem_ident=str(row.get("ElemIdent", "")),
                     length=float(row.get("length", 0)),
                     width=float(row.get("width", 0)),
@@ -120,7 +121,6 @@ class Problem:
                     process_times=process_times
                 )
                 parts.append(part)
-                part_counter += 1
 
         # 3. Create products
         products = {}

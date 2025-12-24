@@ -16,13 +16,16 @@ from solution import Solution
 
 # Try to import matplotlib for image generation
 try:
+    import matplotlib
+    matplotlib.use("Agg")
     import matplotlib.pyplot as plt
     import matplotlib.patches as patches
     from matplotlib.patches import Rectangle
     MATPLOTLIB_AVAILABLE = True
-except ImportError:
+except Exception as exc:
     MATPLOTLIB_AVAILABLE = False
-    print("Warning: matplotlib not installed. Sheet images will not be generated.")
+    print("Warning: matplotlib not available or backend failed. Sheet images will not be generated.")
+    print(f"Reason: {exc}")
     print("Install with: pip install matplotlib")
 
 
@@ -129,7 +132,7 @@ class OutputGenerator:
             ax.add_patch(part_rect)
 
             # Add part label
-            label = f"{part.product_id[:10]}\n{part.area:.3f}m2"
+            label = f"{part.id}\n{part.product_id[:10]}\n{part.area:.3f}m2"
             ax.text(current_x + display_w/2, current_y + display_h/2,
                    label, ha='center', va='center', fontsize=6,
                    wrap=True)
