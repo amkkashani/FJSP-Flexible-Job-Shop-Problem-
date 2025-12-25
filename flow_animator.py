@@ -110,10 +110,24 @@ class FlowAnimator:
         machine_height = 0.6
         station_spacing = 0.5
         machine_spacing = 0.2
+        waiting_area_height = 1.0
 
         # Calculate total height needed
         max_machines = max(self.station_machines.values())
-        total_height = max_machines * (machine_height + machine_spacing)
+        machine_area_height = max_machines * (machine_height + machine_spacing)
+        total_height = waiting_area_height + machine_area_height
+
+        # Determine sheets waiting at each station (finished previous step but not yet started here)
+        waiting_by_station: Dict[str, List[str]] = {s.name: [] for s in self.stations}
+        for sheet in sheets_to_show:
+            assignments = sorted(self.solution.schedule.get(sheet.id, []),
+                                 key=lambda a: a.start_time)
+            for idx, assignment in enumerate(assignments):
+                if assignment.start_time > current_time:
+                    prev_end = assignments[idx - 1].end_time if idx > 0 else 0.0
+                    if prev_end <= current_time + 1e-9:
+                        waiting_by_station[assignment.station_name].append(sheet.id)
+                    break
 
         # Draw stations and machines
         station_positions = {}  # station_name -> (x, y_base)
@@ -123,7 +137,9 @@ class FlowAnimator:
             num_machines = self.station_machines[station.name]
 
             # Center machines vertically
-            y_offset = (total_height - num_machines * (machine_height + machine_spacing)) / 2
+            y_offset = waiting_area_height + (
+                machine_area_height - num_machines * (machine_height + machine_spacing)
+            ) / 2
 
             # Draw station label
             ax.text(x + station_width/2, total_height + 0.3,
@@ -143,6 +159,23 @@ class FlowAnimator:
                 # Machine label
                 ax.text(x + 0.1, y + machine_height/2, f"M{m}",
                        va='center', fontsize=8, color='gray')
+
+            # Waiting section under the machines
+            separator_y = waiting_area_height - 0.1
+            ax.plot([x, x + station_width], [separator_y, separator_y],
+                    linestyle='--', color='gray', linewidth=1, alpha=0.7)
+            ax.text(x + station_width/2, separator_y - 0.05, "-------",
+                    ha='center', va='top', fontsize=8, color='gray')
+
+            # Skip waiting list for first station; list others line-by-line
+            if i > 0:
+                waiting_labels = waiting_by_station.get(station.name, [])
+                waiting_display = "\n".join(
+                    s.replace('SHEET_', '') for s in waiting_labels
+                ) if waiting_labels else "None"
+                ax.text(x + station_width/2, waiting_area_height / 2,
+                       f"Waiting:\n{waiting_display}",
+                       ha='center', va='center', fontsize=8, color='black')
 
             station_positions[station.name] = (x, y_offset)
 
@@ -197,17 +230,18 @@ class FlowAnimator:
                     break
 
         # Draw arrows between stations
+        arrow_y = waiting_area_height + (machine_area_height / 2)
         for i in range(len(self.stations) - 1):
             x1 = i * (station_width + station_spacing) + station_width
             x2 = (i + 1) * (station_width + station_spacing)
-            y = total_height / 2
+            y = arrow_y
 
             ax.annotate('', xy=(x2, y), xytext=(x1, y),
                        arrowprops=dict(arrowstyle='->', lw=2, color='gray', alpha=0.5))
 
         # Set axis properties
         ax.set_xlim(-0.5, num_stations * (station_width + station_spacing))
-        ax.set_ylim(-0.5, total_height + 1)
+        ax.set_ylim(-0.5, total_height + 1.2)
         ax.set_aspect('equal')
         ax.axis('off')
 
