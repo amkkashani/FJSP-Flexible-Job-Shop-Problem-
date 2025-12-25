@@ -11,6 +11,7 @@ from models import Problem
 from solvers import GreedySolver
 from evaluation import WeightedEvaluator
 from output_generator import generate_outputs
+from flow_animator import FlowAnimator
 
 
 def main():
@@ -85,6 +86,22 @@ def main():
         data_file,
         problem.sheet_width,
         problem.sheet_height
+    )
+
+    # Generate flow animation and Gantt chart
+    print("\n" + "=" * 60)
+    print("GENERATING FLOW ANIMATION")
+    print("=" * 60)
+    animator = FlowAnimator(solution, problem)
+    animator.create_animation(
+        output_path=str(output_folder / "flow_animation.gif"),
+        fps=15,
+        duration_seconds=30,
+        max_sheets=50
+    )
+    animator.create_gantt_chart(
+        output_path=str(output_folder / "gantt_chart.png"),
+        max_sheets=30
     )
 
     print(f"\n" + "=" * 60)
