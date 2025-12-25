@@ -119,7 +119,8 @@ class OutputGenerator:
             current_x = x_offset
             current_y = y_offset
             row_height = 0
-            padding = 0.02
+            # padding = 0.02
+            padding = 0
 
             for part in sorted(parts, key=lambda p: p.area, reverse=True):
                 part_w = part.width / 1000

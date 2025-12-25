@@ -52,7 +52,7 @@ def main():
     print(f"  - Materials: {len(problem.get_unique_materials())}")
 
     # Create evaluator
-    evaluator = WeightedEvaluator(alpha=1.0, beta=0.5)
+    evaluator = WeightedEvaluator(alpha=1.0, beta=0.5, gamma=0.3)
     print(f"\nEvaluator: {evaluator}")
 
     # Create and run solver
@@ -132,7 +132,7 @@ def run_with_sample_data():
     print(f"  - Total parts area: {problem.total_parts_area():.4f} m2")
 
     # Create evaluator and solver
-    evaluator = WeightedEvaluator(alpha=1.0, beta=0.5)
+    evaluator = WeightedEvaluator(alpha=1.0, beta=0.5, gamma=0.3)
     solver = GreedySolver(sort_by='area_desc')
 
     print(f"\nEvaluator: {evaluator}")
