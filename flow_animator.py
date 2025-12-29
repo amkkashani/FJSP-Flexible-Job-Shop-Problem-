@@ -42,8 +42,8 @@ class FlowAnimator:
             self.station_machines[station.name] = station.num_machines
 
     def create_animation(self, output_path: str = "output/flow_animation.gif",
-                        fps: int = 10, duration_seconds: int = 20,
-                        max_sheets: int = None):
+                        fps: int = 10, duration_seconds: int = 30,
+                        end_hold_seconds: int = 3, max_sheets: int = None):
         """
         Create an animated GIF showing sheet flow through stations.
 
@@ -51,6 +51,7 @@ class FlowAnimator:
             output_path: Path to save the GIF
             fps: Frames per second
             duration_seconds: Total animation duration
+            end_hold_seconds: Extra seconds to hold on final frame
             max_sheets: Maximum number of sheets to show (for performance)
         """
         if not MATPLOTLIB_AVAILABLE:
@@ -59,6 +60,7 @@ class FlowAnimator:
 
         # Calculate time parameters
         total_frames = fps * duration_seconds
+        end_hold_frames = fps * end_hold_seconds
         time_step = self.makespan / total_frames
 
         # Select sheets to animate
@@ -70,27 +72,30 @@ class FlowAnimator:
         print(f"  Sheets: {len(sheets_to_show)}")
         print(f"  Stations: {len(self.stations)}")
         print(f"  Makespan: {self.makespan:.2f}")
-        print(f"  Total frames: {total_frames}")
+        print(f"  Total frames: {total_frames} (+{end_hold_frames} hold frames)")
 
         # Create figure
         fig, ax = plt.subplots(figsize=(16, 10))
 
         def animate(frame):
             ax.clear()
-            current_time = frame * time_step
+            if frame < total_frames:
+                current_time = frame * time_step
+            else:
+                current_time = self.makespan  # Hold on final state
 
             # Draw the animation for this time frame
             self._draw_frame(ax, current_time, sheets_to_show)
 
             # Progress indicator
             if frame % 10 == 0:
-                progress = (frame / total_frames) * 100
-                print(f"  Progress: {progress:.1f}%", end='\r')
+                progress = (min(frame, total_frames) / total_frames) * 100
+                print(f"  Progress: {progress:.1f}% (including hold)", end='\r')
 
             return ax,
 
         # Create animation
-        anim = FuncAnimation(fig, animate, frames=total_frames,
+        anim = FuncAnimation(fig, animate, frames=total_frames + end_hold_frames,
                            interval=1000/fps, blit=False, repeat=True)
 
         # Save as GIF
@@ -111,11 +116,13 @@ class FlowAnimator:
         station_spacing = 0.5
         machine_spacing = 0.2
         waiting_area_height = 1.0
+        info_panel_width = 2.5
 
         # Calculate total height needed
         max_machines = max(self.station_machines.values())
         machine_area_height = max_machines * (machine_height + machine_spacing)
         total_height = waiting_area_height + machine_area_height
+        layout_width = num_stations * (station_width + station_spacing)
 
         # Determine sheets waiting at each station (finished previous step but not yet started here)
         waiting_by_station: Dict[str, List[str]] = {s.name: [] for s in self.stations}
@@ -128,6 +135,28 @@ class FlowAnimator:
                     if prev_end <= current_time + 1e-9:
                         waiting_by_station[assignment.station_name].append(sheet.id)
                     break
+
+        # Determine product partial completion (some parts done, not all)
+        product_totals = {pid: len(prod.part_ids) for pid, prod in self.problem.products.items()}
+        product_completed = {pid: 0 for pid in product_totals}
+
+        for sheet in self.solution.sheets:
+            assignments = self.solution.schedule.get(sheet.id, [])
+            if not assignments:
+                continue
+            sheet_end = max(a.end_time for a in assignments)
+            if sheet_end <= current_time + 1e-9:
+                for part in sheet.assigned_parts:
+                    pid = part.product_id
+                    if pid in product_completed:
+                        product_completed[pid] += 1
+
+        partial_products = [
+            (pid, product_completed.get(pid, 0), total)
+            for pid, total in product_totals.items()
+            if 0 < product_completed.get(pid, 0) < total
+        ]
+        partial_products.sort(key=lambda x: x[0])
 
         # Draw stations and machines
         station_positions = {}  # station_name -> (x, y_base)
@@ -240,7 +269,21 @@ class FlowAnimator:
                        arrowprops=dict(arrowstyle='->', lw=2, color='gray', alpha=0.5))
 
         # Set axis properties
-        ax.set_xlim(-0.5, num_stations * (station_width + station_spacing))
+        # Products panel (right side)
+        panel_x = layout_width + station_spacing + info_panel_width / 2
+        panel_title_y = total_height + 0.2
+        ax.text(panel_x, panel_title_y, "Products in progress",
+                ha='center', va='bottom', fontsize=10, fontweight='bold')
+        if partial_products:
+            for idx, (pid, done, total) in enumerate(partial_products):
+                y = total_height - 0.2 - idx * 0.35
+                ax.text(panel_x, y, f"{pid}: {done}/{total}",
+                        ha='center', va='top', fontsize=8, color='black')
+        else:
+            ax.text(panel_x, total_height - 0.2, "None",
+                    ha='center', va='top', fontsize=8, color='gray')
+
+        ax.set_xlim(-0.5, layout_width + info_panel_width + station_spacing * 2)
         ax.set_ylim(-0.5, total_height + 1.2)
         ax.set_aspect('equal')
         ax.axis('off')
@@ -330,7 +373,8 @@ class FlowAnimator:
 
 def create_flow_animation(solution: Solution, problem: Problem,
                          output_path: str = "output/flow_animation.gif",
-                         fps: int = 10, duration: int = 20, max_sheets: int = 50):
+                         fps: int = 10, duration: int = 30, max_sheets: int = 50,
+                         end_hold_seconds: int = 3):
     """
     Main function to create flow animation.
 
@@ -340,10 +384,17 @@ def create_flow_animation(solution: Solution, problem: Problem,
         output_path: Path to save the GIF
         fps: Frames per second
         duration: Animation duration in seconds
+        end_hold_seconds: Extra seconds to hold on final frame
         max_sheets: Maximum sheets to show
     """
     animator = FlowAnimator(solution, problem)
-    animator.create_animation(output_path, fps, duration, max_sheets)
+    animator.create_animation(
+        output_path=output_path,
+        fps=fps,
+        duration_seconds=duration,
+        end_hold_seconds=end_hold_seconds,
+        max_sheets=max_sheets
+    )
     return animator
 
 
@@ -372,7 +423,13 @@ if __name__ == "__main__":
 
     # Create animation
     animator = FlowAnimator(solution, problem)
-    animator.create_animation("output/flow_animation.gif", fps=15, duration_seconds=30, max_sheets=50)
+    animator.create_animation(
+        "output/flow_animation.gif",
+        fps=15,
+        duration_seconds=30,
+        end_hold_seconds=5,
+        max_sheets=50
+    )
     animator.create_gantt_chart("output/gantt_chart.png", max_sheets=30)
 
     print("\nDone!")

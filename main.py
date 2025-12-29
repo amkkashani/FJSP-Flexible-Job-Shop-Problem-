@@ -96,7 +96,8 @@ def main():
     animator.create_animation(
         output_path=str(output_folder / "flow_animation.gif"),
         fps=15,
-        duration_seconds=30,
+        duration_seconds=40,
+        end_hold_seconds=5,
         max_sheets=50
     )
     animator.create_gantt_chart(
