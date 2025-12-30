@@ -288,8 +288,12 @@ class FlowAnimator:
         ax.set_aspect('equal')
         ax.axis('off')
 
-        # Title with current time
-        title = f"Sheet Flow Through Stations - Time: {current_time:.1f} / {self.makespan:.1f}"
+        # Title with current time (converted to minutes:seconds for display)
+        current_mins = int(current_time // 60)
+        current_secs = int(current_time % 60)
+        makespan_mins = int(self.makespan // 60)
+        makespan_secs = int(self.makespan % 60)
+        title = f"Sheet Flow Through Stations - Time: {current_mins}m {current_secs}s / {makespan_mins}m {makespan_secs}s"
         title += f"\nActive Sheets: {sheets_drawn}"
         ax.set_title(title, fontsize=14, fontweight='bold', pad=20)
 
@@ -354,11 +358,23 @@ class FlowAnimator:
                        ha='center', va='center', fontsize=6, fontweight='bold')
 
         # Formatting
-        ax.set_xlabel('Time', fontsize=12)
+        ax.set_xlabel('Time (minutes)', fontsize=12)
         ax.set_ylabel('Sheet ID', fontsize=12)
         ax.set_title('Gantt Chart - Sheet Processing Schedule', fontsize=14, fontweight='bold')
         ax.set_yticks(range(len(sheets_to_show)))
         ax.set_yticklabels([s.id for s in sheets_to_show], fontsize=8)
+
+        # Convert x-axis to minutes:seconds for display
+        num_ticks = 10
+        tick_positions_seconds = np.linspace(0, self.makespan, num_ticks)
+        tick_labels_min_sec = []
+        for t in tick_positions_seconds:
+            mins = int(t // 60)
+            # secs = int(t % 60)
+            tick_labels_min_sec.append(f"{mins}m")
+
+        ax.set_xticks(tick_positions_seconds)
+        ax.set_xticklabels(tick_labels_min_sec)
 
         # Set x-axis limit to show full makespan
         ax.set_xlim(0, self.makespan)
