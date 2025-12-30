@@ -17,7 +17,7 @@ from flow_animator import FlowAnimator
 def main():
     """Main function to run the FJSP solver."""
     # Configuration path
-    config_path = "config/stations.json"
+    config_path = "config/config.json"
 
     print("=" * 60)
     print("FLEXIBLE JOB SHOP SCHEDULING PROBLEM SOLVER")
@@ -40,7 +40,7 @@ def main():
     # Check if data file exists
     if not Path(data_file).exists():
         print(f"\nWarning: Data file not found at {data_file}")
-        print("Please update 'data_file' in config/stations.json")
+        print("Please update 'data_file' in config/config.json")
         print("\nRunning with sample data for demonstration...")
         run_with_sample_data()
         return
@@ -104,7 +104,10 @@ def main():
     fps = animation_config.get("fps", 15)
     duration_seconds = animation_config.get("duration_seconds", 30)
     end_hold_seconds = animation_config.get("end_hold_seconds", 5)
-    max_sheets = animation_config.get("max_sheets", 50)
+    max_sheets = animation_config.get("max_sheets", None)
+    # If max_sheets is None, use all sheets from solution
+    if max_sheets is None:
+        max_sheets = len(solution.sheets)
 
     if generate_animation or generate_gantt:
         print("\n" + "=" * 60)
@@ -169,7 +172,7 @@ def run_with_sample_data():
     df = pd.DataFrame(sample_data)
 
     # Load station config
-    with open("config/stations.json", 'r') as f:
+    with open("config/config.json", 'r') as f:
         station_config = json.load(f)
 
     # Create problem
@@ -183,7 +186,7 @@ def run_with_sample_data():
     print(f"  - Total parts area: {problem.total_parts_area():.4f} m2")
 
     # Load evaluator parameters from config
-    with open('config/stations.json', 'r') as f:
+    with open('config/config.json', 'r') as f:
         config = json.load(f)
     evaluator_config = config.get("evaluator", {})
     alpha = evaluator_config.get("alpha", 1.0)

@@ -58,7 +58,7 @@ pip install pandas openpyxl matplotlib
 
 ## Quick Start
 
-1. **Configure your data file** in `config/stations.json`:
+1. **Configure your data file** in `config/config.json`:
 
 ```json
 {
@@ -88,7 +88,7 @@ project/
 ├── output_generator.py     # Output files and sheet images
 ├── visualizer.py           # Console visualization
 ├── config/
-│   └── stations.json       # Configuration file
+│   └── config.json       # Configuration file
 ├── data/
 │   └── *.xlsx              # Input data files
 ├── models/
@@ -125,7 +125,7 @@ project/
 
 ## Configuration
 
-The configuration file `config/stations.json` contains all settings:
+The configuration file `config/config.json` contains all settings:
 
 ```json
 {
@@ -351,7 +351,7 @@ from models import Problem
 # From files
 problem = Problem.load_from_files(
     excel_path="data/5693_cleaned.xlsx",
-    config_path="config/stations.json"
+    config_path="config/config.json"
 )
 
 # From DataFrame

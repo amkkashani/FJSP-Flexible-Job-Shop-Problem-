@@ -408,7 +408,7 @@ if __name__ == "__main__":
     from evaluation import WeightedEvaluator
 
     # Load config
-    config_path = "config/stations.json"
+    config_path = "config/config.json"
     with open(config_path, 'r') as f:
         config = json.load(f)
 

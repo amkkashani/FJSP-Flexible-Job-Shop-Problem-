@@ -205,7 +205,7 @@ Encapsulates the entire problem instance.
 # Load from files
 problem = Problem.load_from_files(
     excel_path="data/5693_cleaned.xlsx",
-    config_path="config/stations.json"
+    config_path="config/config.json"
 )
 
 print(f"Parts: {problem.num_parts()}")
@@ -487,7 +487,7 @@ from evaluation import WeightedEvaluator
 from output_generator import generate_outputs
 
 # Load configuration
-with open("config/stations.json", 'r') as f:
+with open("config/config.json", 'r') as f:
     config = json.load(f)
 
 data_file = config["data_file"]
@@ -495,7 +495,7 @@ sheet_x = config.get("sheet_X", 2.0)
 sheet_y = config.get("sheet_Y", 1.8)
 
 # Load problem
-problem = Problem.load_from_files(data_file, "config/stations.json")
+problem = Problem.load_from_files(data_file, "config/config.json")
 
 # Create evaluator and solver
 evaluator = WeightedEvaluator(alpha=1.0, beta=0.5)

@@ -6,7 +6,7 @@ This document explains all configuration options for the FJSP Solver.
 
 ## Configuration File
 
-All configuration is stored in `config/stations.json`.
+All configuration is stored in `config/config.json`.
 
 ### Complete Example
 
@@ -38,7 +38,7 @@ All configuration is stored in `config/stations.json`.
     "fps": 15,
     "duration_seconds": 30,
     "end_hold_seconds": 5,
-    "max_sheets": 50
+    "max_sheets": null
   }
 }
 ```
@@ -218,7 +218,7 @@ Configures animation generation parameters. These settings affect runtime perfor
   "fps": 15,
   "duration_seconds": 30,
   "end_hold_seconds": 5,
-  "max_sheets": 50
+  "max_sheets": null
 }
 ```
 
@@ -227,12 +227,16 @@ Configures animation generation parameters. These settings affect runtime perfor
 | `fps` | int | 15 | Frames per second | Higher = longer runtime |
 | `duration_seconds` | int | 30 | Total animation duration | Higher = longer runtime |
 | `end_hold_seconds` | int | 5 | Hold on final frame | Minor impact |
-| `max_sheets` | int | 50 | Maximum sheets to animate | Higher = longer runtime |
+| `max_sheets` | int or null | null | Maximum sheets to animate (null = all sheets) | Higher = longer runtime |
 
 **Performance recommendations:**
 - For faster generation: `fps=10`, `duration_seconds=20`, `max_sheets=30`
-- For high quality: `fps=20`, `duration_seconds=40`, `max_sheets=100`
+- For high quality: `fps=20`, `duration_seconds=40`, `max_sheets=null` (all sheets)
 - For quick testing: Set `generate_animation=false` in report section
+
+**Note about max_sheets:**
+- Set to `null` to animate all sheets in the solution (recommended for final reports)
+- Set to a number (e.g., `30` or `50`) to limit sheets for faster generation during development
 
 **Note:** Total frames = `fps × (duration_seconds + end_hold_seconds)`. More frames = longer generation time.
 
