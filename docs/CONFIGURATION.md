@@ -24,7 +24,22 @@ All configuration is stored in `config/stations.json`.
   ],
   "sheet_capacity": 3.6,
   "sheet_X": 2,
-  "sheet_Y": 1.8
+  "sheet_Y": 1.8,
+  "evaluator": {
+    "alpha": 1.0,
+    "beta": 0.5,
+    "gamma": 0.3
+  },
+  "report": {
+    "generate_gantt_chart": true,
+    "generate_animation": true
+  },
+  "animation_settings": {
+    "fps": 15,
+    "duration_seconds": 30,
+    "end_hold_seconds": 5,
+    "max_sheets": 50
+  }
 }
 ```
 
@@ -137,6 +152,89 @@ Sheet height in meters. Used for:
 ```
 
 **Note:** `sheet_X * sheet_Y` should be at least `sheet_capacity`. If not, the solver caps capacity to the sheet area.
+
+---
+
+### evaluator
+
+**Type:** object
+**Required:** No
+
+Defines weights for the multi-objective evaluator.
+
+```json
+"evaluator": {
+  "alpha": 1.0,
+  "beta": 0.5,
+  "gamma": 0.3
+}
+```
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `alpha` | float | 1.0 | Weight for waste minimization |
+| `beta` | float | 0.5 | Weight for makespan minimization |
+| `gamma` | float | 0.3 | Weight for average product completion time |
+
+**Higher values prioritize:**
+- `alpha` → Less waste (better sheet utilization)
+- `beta` → Faster overall completion (lower makespan)
+- `gamma` → Faster individual product completion
+
+---
+
+### report
+
+**Type:** object
+**Required:** No
+
+Controls which output reports and visualizations are generated.
+
+```json
+"report": {
+  "generate_gantt_chart": true,
+  "generate_animation": false
+}
+```
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `generate_gantt_chart` | boolean | true | Generate Gantt chart PNG showing schedule |
+| `generate_animation` | boolean | true | Generate animated GIF of sheet flow |
+
+**Performance tip:** Set `generate_animation` to `false` to significantly speed up execution time.
+
+---
+
+### animation_settings
+
+**Type:** object
+**Required:** No
+
+Configures animation generation parameters. These settings affect runtime performance.
+
+```json
+"animation_settings": {
+  "fps": 15,
+  "duration_seconds": 30,
+  "end_hold_seconds": 5,
+  "max_sheets": 50
+}
+```
+
+| Parameter | Type | Default | Description | Runtime Impact |
+|-----------|------|---------|-------------|----------------|
+| `fps` | int | 15 | Frames per second | Higher = longer runtime |
+| `duration_seconds` | int | 30 | Total animation duration | Higher = longer runtime |
+| `end_hold_seconds` | int | 5 | Hold on final frame | Minor impact |
+| `max_sheets` | int | 50 | Maximum sheets to animate | Higher = longer runtime |
+
+**Performance recommendations:**
+- For faster generation: `fps=10`, `duration_seconds=20`, `max_sheets=30`
+- For high quality: `fps=20`, `duration_seconds=40`, `max_sheets=100`
+- For quick testing: Set `generate_animation=false` in report section
+
+**Note:** Total frames = `fps × (duration_seconds + end_hold_seconds)`. More frames = longer generation time.
 
 ---
 

@@ -94,22 +94,49 @@ def main():
         problem.sheet_height
     )
 
-    # Generate flow animation and Gantt chart
-    print("\n" + "=" * 60)
-    print("GENERATING FLOW ANIMATION")
-    print("=" * 60)
-    animator = FlowAnimator(solution, problem)
-    animator.create_animation(
-        output_path=str(output_folder / "flow_animation.gif"),
-        fps=15,
-        duration_seconds=40,
-        end_hold_seconds=5,
-        max_sheets=50
-    )
-    animator.create_gantt_chart(
-        output_path=str(output_folder / "gantt_chart.png")
-        # max_sheets=None means show all sheets
-    )
+    # Generate flow animation and Gantt chart based on config
+    report_config = config.get("report", {})
+    generate_animation = report_config.get("generate_animation", True)
+    generate_gantt = report_config.get("generate_gantt_chart", True)
+
+    # Load animation settings
+    animation_config = config.get("animation_settings", {})
+    fps = animation_config.get("fps", 15)
+    duration_seconds = animation_config.get("duration_seconds", 30)
+    end_hold_seconds = animation_config.get("end_hold_seconds", 5)
+    max_sheets = animation_config.get("max_sheets", 50)
+
+    if generate_animation or generate_gantt:
+        print("\n" + "=" * 60)
+        print("GENERATING REPORTS")
+        print("=" * 60)
+        animator = FlowAnimator(solution, problem)
+
+        if generate_animation:
+            print("\nGenerating flow animation...")
+            print(f"  Settings: fps={fps}, duration={duration_seconds}s, max_sheets={max_sheets}")
+            animator.create_animation(
+                output_path=str(output_folder / "flow_animation.gif"),
+                fps=fps,
+                duration_seconds=duration_seconds,
+                end_hold_seconds=end_hold_seconds,
+                max_sheets=max_sheets
+            )
+        else:
+            print("\nSkipping animation generation (disabled in config)")
+
+        if generate_gantt:
+            print("\nGenerating Gantt chart...")
+            animator.create_gantt_chart(
+                output_path=str(output_folder / "gantt_chart.png")
+                # max_sheets=None means show all sheets
+            )
+        else:
+            print("\nSkipping Gantt chart generation (disabled in config)")
+    else:
+        print("\n" + "=" * 60)
+        print("Skipping report generation (all reports disabled in config)")
+        print("=" * 60)
 
     print(f"\n" + "=" * 60)
     print(f"COMPLETED - Output folder: {output_folder}")
