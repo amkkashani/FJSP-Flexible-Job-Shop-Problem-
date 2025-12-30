@@ -269,18 +269,18 @@ class FlowAnimator:
                        arrowprops=dict(arrowstyle='->', lw=2, color='gray', alpha=0.5))
 
         # Set axis properties
-        # Products panel (right side)
+        # Products panel (right side) - pushed much higher
         panel_x = layout_width + station_spacing + info_panel_width / 2
-        panel_title_y = total_height + 0.2
+        panel_title_y = total_height + 6  # Increased from 0.2 to 0.8
         ax.text(panel_x, panel_title_y, "Products in progress",
                 ha='center', va='bottom', fontsize=10, fontweight='bold')
         if partial_products:
             for idx, (pid, done, total) in enumerate(partial_products):
-                y = total_height - 0.2 - idx * 0.35
+                y = total_height + 5.8 - idx * 0.35  # Changed from total_height - 0.2
                 ax.text(panel_x, y, f"{pid}: {done}/{total}",
                         ha='center', va='top', fontsize=8, color='black')
         else:
-            ax.text(panel_x, total_height - 0.2, "None",
+            ax.text(panel_x, total_height + 0.4, "None",  # Changed from total_height - 0.2
                     ha='center', va='top', fontsize=8, color='gray')
 
         ax.set_xlim(-0.5, layout_width + info_panel_width + station_spacing * 2)
@@ -297,13 +297,15 @@ class FlowAnimator:
         title += f"\nActive Sheets: {sheets_drawn}"
         ax.set_title(title, fontsize=14, fontweight='bold', pad=20)
 
-        # Add legend
+        # Add legend - positioned at top left, pushed 5cm higher
         legend_elements = [
             mpatches.Patch(facecolor='lightgreen', edgecolor='darkblue', label='Starting'),
             mpatches.Patch(facecolor='yellow', edgecolor='darkblue', label='Processing'),
             mpatches.Patch(facecolor='lightcoral', edgecolor='darkblue', label='Finishing')
         ]
-        ax.legend(handles=legend_elements, loc='upper right', fontsize=10)
+        # bbox_to_anchor: (x, y) where y > 1 pushes it above the plot area
+        ax.legend(handles=legend_elements, loc='upper left', fontsize=10,
+                 bbox_to_anchor=(0, 1.5))
 
     def create_gantt_chart(self, output_path: str = "output/gantt_chart.png",
                           max_sheets: int = None):

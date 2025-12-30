@@ -16,5 +16,9 @@
     "alpha": 1.0,
     "beta": 0.5,
     "gamma": 0.3
+  },
+  "report": {
+    "generate_gantt_chart": true,
+    "generate_animation": true
   }
 }
