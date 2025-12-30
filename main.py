@@ -31,6 +31,12 @@ def main():
     sheet_x = config.get("sheet_X", 2.0)  # Sheet width in meters
     sheet_y = config.get("sheet_Y", 1.8)  # Sheet height in meters
 
+    # Load evaluator parameters
+    evaluator_config = config.get("evaluator", {})
+    alpha = evaluator_config.get("alpha", 1.0)
+    beta = evaluator_config.get("beta", 0.5)
+    gamma = evaluator_config.get("gamma", 0.3)
+
     # Check if data file exists
     if not Path(data_file).exists():
         print(f"\nWarning: Data file not found at {data_file}")
@@ -53,7 +59,7 @@ def main():
     print(f"  - Materials: {len(problem.get_unique_materials())}")
 
     # Create evaluator
-    evaluator = WeightedEvaluator(alpha=1.0, beta=0.5, gamma=0.3)
+    evaluator = WeightedEvaluator(alpha=alpha, beta=beta, gamma=gamma)
     print(f"\nEvaluator: {evaluator}")
 
     # Create and run solver
@@ -101,8 +107,8 @@ def main():
         max_sheets=50
     )
     animator.create_gantt_chart(
-        output_path=str(output_folder / "gantt_chart.png"),
-        max_sheets=30
+        output_path=str(output_folder / "gantt_chart.png")
+        # max_sheets=None means show all sheets
     )
 
     print(f"\n" + "=" * 60)
@@ -149,8 +155,16 @@ def run_with_sample_data():
     print(f"  - Sheet capacity: {problem.sheet_capacity} m2")
     print(f"  - Total parts area: {problem.total_parts_area():.4f} m2")
 
+    # Load evaluator parameters from config
+    with open('config/stations.json', 'r') as f:
+        config = json.load(f)
+    evaluator_config = config.get("evaluator", {})
+    alpha = evaluator_config.get("alpha", 1.0)
+    beta = evaluator_config.get("beta", 0.5)
+    gamma = evaluator_config.get("gamma", 0.3)
+
     # Create evaluator and solver
-    evaluator = WeightedEvaluator(alpha=1.0, beta=0.5, gamma=0.3)
+    evaluator = WeightedEvaluator(alpha=alpha, beta=beta, gamma=gamma)
     solver = GreedySolver(sort_by='area_desc')
 
     print(f"\nEvaluator: {evaluator}")

@@ -87,10 +87,10 @@ class FlowAnimator:
             # Draw the animation for this time frame
             self._draw_frame(ax, current_time, sheets_to_show)
 
-            # Progress indicator
-            if frame % 10 == 0:
+            # Progress indicator - print every 10 frames with newline
+            if frame % 10 == 0 or frame == total_frames + end_hold_frames - 1:
                 progress = (min(frame, total_frames) / total_frames) * 100
-                print(f"  Progress: {progress:.1f}% (including hold)", end='\r')
+                print(f"  Progress: Frame {frame}/{total_frames + end_hold_frames} ({progress:.1f}%)")
 
             return ax,
 
@@ -302,21 +302,25 @@ class FlowAnimator:
         ax.legend(handles=legend_elements, loc='upper right', fontsize=10)
 
     def create_gantt_chart(self, output_path: str = "output/gantt_chart.png",
-                          max_sheets: int = 20):
+                          max_sheets: int = None):
         """
         Create a static Gantt chart showing all sheet schedules.
 
         Args:
             output_path: Path to save the image
-            max_sheets: Maximum number of sheets to display
+            max_sheets: Maximum number of sheets to display (None = show all sheets)
         """
         if not MATPLOTLIB_AVAILABLE:
             print("Cannot create Gantt chart - matplotlib not available")
             return
 
-        sheets_to_show = self.solution.sheets[:max_sheets]
+        # If max_sheets is None, show all sheets
+        if max_sheets is None:
+            sheets_to_show = self.solution.sheets
+        else:
+            sheets_to_show = self.solution.sheets[:max_sheets]
 
-        print(f"\nCreating Gantt chart for {len(sheets_to_show)} sheets...")
+        print(f"\nCreating Gantt chart for {len(sheets_to_show)} sheets (total: {len(self.solution.sheets)})...")
 
         fig, ax = plt.subplots(figsize=(16, max(10, len(sheets_to_show) * 0.3)))
 
@@ -355,6 +359,9 @@ class FlowAnimator:
         ax.set_title('Gantt Chart - Sheet Processing Schedule', fontsize=14, fontweight='bold')
         ax.set_yticks(range(len(sheets_to_show)))
         ax.set_yticklabels([s.id for s in sheets_to_show], fontsize=8)
+
+        # Set x-axis limit to show full makespan
+        ax.set_xlim(0, self.makespan)
         ax.grid(axis='x', alpha=0.3)
 
         # Legend
@@ -410,13 +417,19 @@ if __name__ == "__main__":
 
     data_file = config.get("data_file", "data/5693_cleaned.xlsx")
 
+    # Load evaluator parameters
+    evaluator_config = config.get("evaluator", {})
+    alpha = evaluator_config.get("alpha", 1.0)
+    beta = evaluator_config.get("beta", 0.5)
+    gamma = evaluator_config.get("gamma", 0.3)
+
     # Load problem and solve
     print("Loading problem...")
     problem = Problem.load_from_files(data_file, config_path)
 
     print("Solving...")
     solver = GreedySolver(sort_by='area_desc')
-    evaluator = WeightedEvaluator(alpha=1.0, beta=0.5, gamma=0.3)
+    evaluator = WeightedEvaluator(alpha=alpha, beta=beta, gamma=gamma)
     solution = solver.solve(problem, evaluator)
 
     print(f"\nSolution: {solution.num_sheets()} sheets, Makespan: {solution.get_makespan():.2f}")
@@ -430,6 +443,6 @@ if __name__ == "__main__":
         end_hold_seconds=5,
         max_sheets=50
     )
-    animator.create_gantt_chart("output/gantt_chart.png", max_sheets=30)
+    animator.create_gantt_chart("output/gantt_chart.png")  # Shows all sheets
 
     print("\nDone!")

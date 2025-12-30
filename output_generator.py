@@ -416,13 +416,19 @@ if __name__ == "__main__":
     sheet_x = config.get("sheet_X", 2.0)
     sheet_y = config.get("sheet_Y", 1.8)
 
+    # Load evaluator parameters
+    evaluator_config = config.get("evaluator", {})
+    alpha = evaluator_config.get("alpha", 1.0)
+    beta = evaluator_config.get("beta", 0.5)
+    gamma = evaluator_config.get("gamma", 0.3)
+
     # Load problem and solve
     print("Loading problem...")
     problem = Problem.load_from_files(data_file, config_path)
 
     print("Solving...")
     solver = GreedySolver(sort_by='area_desc')
-    evaluator = WeightedEvaluator(alpha=1.0, beta=0.5)
+    evaluator = WeightedEvaluator(alpha=alpha, beta=beta, gamma=gamma)
     solution = solver.solve(problem, evaluator)
 
     # Generate outputs

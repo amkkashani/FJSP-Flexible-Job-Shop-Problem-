@@ -1,7 +1,7 @@
 {
   "data_file": "data/5693_cleaned.xlsx",
   "stations": [
-    {"name": "wa", "order_index": 0, "num_machines": 2},
+    {"name": "wa", "order_index": 0, "num_machines": 1},
     {"name": "wf", "order_index": 1, "num_machines": 2},
     {"name": "wd", "order_index": 2, "num_machines": 1},
     {"name": "wo", "order_index": 3, "num_machines": 1},
@@ -11,5 +11,10 @@
   ],
   "sheet_capacity": 6,
   "sheet_Y": 2,
-  "sheet_X": 3
+  "sheet_X": 3,
+  "evaluator": {
+    "alpha": 1.0,
+    "beta": 0.5,
+    "gamma": 0.3
+  }
 }
