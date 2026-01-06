@@ -450,7 +450,60 @@ class OutputGenerator:
                     'duration': a.duration
                 })
 
-        events.sort(key=lambda x: (x['time'], x['event_type']))
+        part_ids = set(part_to_sheet.keys()) | set(self.solution.part_schedule.keys())
+        for part_id in sorted(part_ids):
+            sheet_id = part_to_sheet.get(part_id, "")
+            product_id = part_to_product.get(part_id, "")
+            completion_time = None
+            completion_station = ""
+            completion_machine = ""
+
+            part_assignments = self.solution.part_schedule.get(part_id, [])
+            if part_assignments:
+                last_assignment = max(part_assignments, key=lambda x: x.end_time)
+                completion_time = last_assignment.end_time
+                completion_station = last_assignment.station_name
+                completion_machine = last_assignment.machine_index
+            else:
+                sheet_assignments = self.solution.schedule.get(sheet_id, [])
+                if sheet_assignments:
+                    last_assignment = max(sheet_assignments, key=lambda x: x.end_time)
+                    completion_time = last_assignment.end_time
+                    completion_station = last_assignment.station_name
+                    completion_machine = last_assignment.machine_index
+
+            if completion_time is not None:
+                events.append({
+                    'time': completion_time,
+                    'end_time': completion_time,
+                    'event_type': 'part_complete',
+                    'entity_id': part_id,
+                    'sheet_id': sheet_id,
+                    'product_id': product_id,
+                    'station': completion_station,
+                    'machine': completion_machine,
+                    'num_parts': 1,
+                    'duration': 0.0
+                })
+
+        event_priority = {
+            'sheet_end': 0,
+            'part_end': 1,
+            'part_complete': 2,
+            'sheet_start': 3,
+            'part_start': 4
+        }
+
+        def event_sort_key(event):
+            return (
+                event['time'],
+                event_priority.get(event['event_type'], 99),
+                event.get('entity_id', ''),
+                event.get('station', ''),
+                event.get('machine', -1)
+            )
+
+        events.sort(key=event_sort_key)
 
         with open(output_path, 'w', newline='', encoding='utf-8') as f:
             fieldnames = [
