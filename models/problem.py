@@ -88,7 +88,8 @@ class Problem:
             Station(
                 name=s["name"],
                 order_index=s["order_index"],
-                num_machines=s.get("num_machines", 1)
+                num_machines=s.get("num_machines", 1),
+                sheet=s.get("sheet", True)
             )
             for s in station_config["stations"]
         ]

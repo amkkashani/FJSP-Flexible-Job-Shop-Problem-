@@ -1,13 +1,13 @@
 {
   "data_file": "data/5693_cleaned.xlsx",
   "stations": [
-    {"name": "wa", "order_index": 0, "num_machines": 1},
-    {"name": "wf", "order_index": 1, "num_machines": 2},
-    {"name": "wd", "order_index": 2, "num_machines": 1},
-    {"name": "wo", "order_index": 3, "num_machines": 1},
-    {"name": "wg", "order_index": 4, "num_machines": 2},
-    {"name": "wv", "order_index": 5, "num_machines": 1},
-    {"name": "wx", "order_index": 6, "num_machines": 1}
+    {"name": "wa", "order_index": 0, "num_machines": 1, "sheet": true},
+    {"name": "wf", "order_index": 1, "num_machines": 2, "sheet": false},
+    {"name": "wd", "order_index": 2, "num_machines": 1, "sheet": false},
+    {"name": "wo", "order_index": 3, "num_machines": 1, "sheet": false},
+    {"name": "wg", "order_index": 4, "num_machines": 2, "sheet": false},
+    {"name": "wv", "order_index": 5, "num_machines": 1, "sheet": false},
+    {"name": "wx", "order_index": 6, "num_machines": 1, "sheet": false}
   ],
   "sheet_capacity": 6,
   "sheet_Y": 2,
@@ -19,7 +19,11 @@
   },
   "report": {
     "generate_gantt_chart": true,
-    "generate_animation": false
+    "generate_animation": false,
+    "generate_frame_by_frame": true
+  },
+  "frame_by_frame_settings": {
+    "max_frames": 100
   },
   "animation_settings": {
     "fps": 15,

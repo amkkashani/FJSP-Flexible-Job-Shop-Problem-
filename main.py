@@ -12,6 +12,7 @@ from solvers import GreedySolver
 from evaluation import WeightedEvaluator
 from output_generator import generate_outputs
 from flow_animator import FlowAnimator
+from frame_by_frame import generate_frame_by_frame
 
 
 def main():
@@ -98,6 +99,7 @@ def main():
     report_config = config.get("report", {})
     generate_animation = report_config.get("generate_animation", True)
     generate_gantt = report_config.get("generate_gantt_chart", True)
+    generate_fbf = report_config.get("generate_frame_by_frame", False)
 
     # Load animation settings
     animation_config = config.get("animation_settings", {})
@@ -109,7 +111,11 @@ def main():
     if max_sheets is None:
         max_sheets = len(solution.sheets)
 
-    if generate_animation or generate_gantt:
+    # Load frame-by-frame settings
+    fbf_config = config.get("frame_by_frame_settings", {})
+    fbf_max_frames = fbf_config.get("max_frames", 100)
+
+    if generate_animation or generate_gantt or generate_fbf:
         print("\n" + "=" * 60)
         print("GENERATING REPORTS")
         print("=" * 60)
@@ -136,6 +142,17 @@ def main():
             )
         else:
             print("\nSkipping Gantt chart generation (disabled in config)")
+
+        if generate_fbf:
+            print("\nGenerating frame-by-frame visualization...")
+            print(f"  Settings: max_frames={fbf_max_frames}")
+            generate_frame_by_frame(
+                solution, problem,
+                output_dir=str(output_folder / "frame_by_frame"),
+                max_frames=fbf_max_frames
+            )
+        else:
+            print("\nSkipping frame-by-frame generation (disabled in config)")
     else:
         print("\n" + "=" * 60)
         print("Skipping report generation (all reports disabled in config)")

@@ -6,6 +6,7 @@ from typing import Dict, List, Optional, Set
 from models.sheet import Sheet
 from models.problem import Problem
 from .assignment import SheetAssignment
+from .part_assignment import PartAssignment
 
 
 @dataclass
@@ -16,23 +17,30 @@ class Solution:
 
     Attributes:
         sheets: All sheets with their assigned parts
-        schedule: For each sheet_id: list of assignments at each station
+        schedule: For each sheet_id: list of assignments at each station (for sheet-based stations)
+        part_schedule: For each part_id: list of assignments at each station (for part-based stations)
         metrics: Computed metrics (populated after evaluation)
     """
     sheets: List[Sheet] = field(default_factory=list)
     schedule: Dict[str, List[SheetAssignment]] = field(default_factory=dict)
+    part_schedule: Dict[str, List[PartAssignment]] = field(default_factory=dict)
     metrics: Dict[str, float] = field(default_factory=dict)
 
     def get_makespan(self) -> float:
-        """Time when last sheet finishes last station."""
-        if not self.schedule:
-            return 0.0
-
+        """Time when last sheet/part finishes last station."""
         max_end_time = 0.0
+
+        # Check sheet-level schedules
         for sheet_id, assignments in self.schedule.items():
             if assignments:
                 sheet_end = max(a.end_time for a in assignments)
                 max_end_time = max(max_end_time, sheet_end)
+
+        # Check part-level schedules
+        for part_id, assignments in self.part_schedule.items():
+            if assignments:
+                part_end = max(a.end_time for a in assignments)
+                max_end_time = max(max_end_time, part_end)
 
         return max_end_time
 
@@ -63,7 +71,13 @@ class Solution:
 
         max_completion = 0.0
 
-        # Find all sheets containing parts from this product
+        # Check part-level schedules first (for parts that went through part stations)
+        for part_id in part_ids:
+            if part_id in self.part_schedule and self.part_schedule[part_id]:
+                part_completion = max(a.end_time for a in self.part_schedule[part_id])
+                max_completion = max(max_completion, part_completion)
+
+        # Also check sheet-level schedules (for parts that only went through sheet stations)
         for sheet in self.sheets:
             sheet_part_ids = set(sheet.get_part_ids())
             if sheet_part_ids & part_ids:  # If intersection exists
@@ -185,6 +199,12 @@ class Solution:
         if sheet_id not in self.schedule:
             self.schedule[sheet_id] = []
         self.schedule[sheet_id].append(assignment)
+
+    def add_part_assignment(self, part_id: str, assignment: PartAssignment) -> None:
+        """Add a station assignment for a part."""
+        if part_id not in self.part_schedule:
+            self.part_schedule[part_id] = []
+        self.part_schedule[part_id].append(assignment)
 
     def compute_metrics(self, problem: Problem) -> Dict[str, float]:
         """Compute and store all metrics."""

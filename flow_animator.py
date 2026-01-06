@@ -1,14 +1,16 @@
-"""Flow animation for FJSP solutions - shows sheets moving through stations and machines."""
+"""Flow animation for FJSP solutions - shows sheets/parts moving through stations and machines."""
 
 import sys
 from pathlib import Path
-from typing import Dict, List, Tuple
+from typing import Dict, List, Tuple, Set
 import json
 
 sys.path.insert(0, str(Path(__file__).parent))
 
 from models import Problem
+from models.part import Part
 from solution import Solution
+from solution.part_assignment import PartAssignment
 
 # Try to import matplotlib for animation
 try:
@@ -27,7 +29,7 @@ except Exception as exc:
 
 
 class FlowAnimator:
-    """Animates the flow of sheets through stations and machines."""
+    """Animates the flow of sheets/parts through stations and machines."""
 
     def __init__(self, solution: Solution, problem: Problem):
         self.solution = solution
@@ -37,9 +39,17 @@ class FlowAnimator:
         # Build station-machine structure
         self.stations = []
         self.station_machines = {}  # station_name -> num_machines
+        self.station_is_sheet = {}  # station_name -> bool (True if sheet-based)
         for station in problem.stations:
             self.stations.append(station)
             self.station_machines[station.name] = station.num_machines
+            self.station_is_sheet[station.name] = station.sheet
+
+        # Build part lookup for quick access
+        self.all_parts: Dict[str, Part] = {}
+        for sheet in solution.sheets:
+            for part in sheet.assigned_parts:
+                self.all_parts[part.id] = part
 
     def create_animation(self, output_path: str = "output/flow_animation.gif",
                         fps: int = 10, duration_seconds: int = 30,
@@ -115,7 +125,7 @@ class FlowAnimator:
         machine_height = 0.6
         station_spacing = 0.5
         machine_spacing = 0.2
-        waiting_area_height = 1.0
+        waiting_area_height = 1.5  # Increased for parts waiting list
         info_panel_width = 2.5
 
         # Calculate total height needed
@@ -124,8 +134,14 @@ class FlowAnimator:
         total_height = waiting_area_height + machine_area_height
         layout_width = num_stations * (station_width + station_spacing)
 
-        # Determine sheets waiting at each station (finished previous step but not yet started here)
-        waiting_by_station: Dict[str, List[str]] = {s.name: [] for s in self.stations}
+        # Collect all parts from sheets to show
+        parts_to_show: Set[str] = set()
+        for sheet in sheets_to_show:
+            for part in sheet.assigned_parts:
+                parts_to_show.add(part.id)
+
+        # Determine sheets waiting at sheet-based stations
+        waiting_sheets_by_station: Dict[str, List[str]] = {s.name: [] for s in self.stations}
         for sheet in sheets_to_show:
             assignments = sorted(self.solution.schedule.get(sheet.id, []),
                                  key=lambda a: a.start_time)
@@ -133,13 +149,58 @@ class FlowAnimator:
                 if assignment.start_time > current_time:
                     prev_end = assignments[idx - 1].end_time if idx > 0 else 0.0
                     if prev_end <= current_time + 1e-9:
-                        waiting_by_station[assignment.station_name].append(sheet.id)
+                        waiting_sheets_by_station[assignment.station_name].append(sheet.id)
+                    break
+
+        # Determine parts waiting at part-based stations
+        # Parts can only wait AFTER their sheet completes all sheet-stations
+        waiting_parts_by_station: Dict[str, List[str]] = {s.name: [] for s in self.stations}
+        for part_id in parts_to_show:
+            if part_id not in self.solution.part_schedule:
+                continue
+
+            # Find when this part's sheet finished (part becomes available)
+            sheet_id = None
+            for sheet in sheets_to_show:
+                if part_id in [p.id for p in sheet.assigned_parts]:
+                    sheet_id = sheet.id
+                    break
+
+            sheet_end_time = 0.0
+            if sheet_id and sheet_id in self.solution.schedule:
+                sheet_assignments = self.solution.schedule[sheet_id]
+                if sheet_assignments:
+                    sheet_end_time = max(a.end_time for a in sheet_assignments)
+
+            # Part can only be waiting if sheet has finished
+            if current_time < sheet_end_time - 1e-9:
+                continue
+
+            assignments = sorted(self.solution.part_schedule[part_id],
+                                 key=lambda a: a.start_time)
+            for idx, assignment in enumerate(assignments):
+                if assignment.start_time > current_time:
+                    prev_end = assignments[idx - 1].end_time if idx > 0 else sheet_end_time
+                    if prev_end <= current_time + 1e-9:
+                        waiting_parts_by_station[assignment.station_name].append(part_id)
                     break
 
         # Determine product partial completion (some parts done, not all)
         product_totals = {pid: len(prod.part_ids) for pid, prod in self.problem.products.items()}
         product_completed = {pid: 0 for pid in product_totals}
 
+        # Check part-level completion first
+        for part_id, assignments in self.solution.part_schedule.items():
+            if not assignments:
+                continue
+            part_end = max(a.end_time for a in assignments)
+            if part_end <= current_time + 1e-9:
+                part = self.all_parts.get(part_id)
+                if part and part.product_id in product_completed:
+                    product_completed[part.product_id] += 1
+
+        # For parts without part_schedule, check sheet-level completion
+        parts_with_part_schedule = set(self.solution.part_schedule.keys())
         for sheet in self.solution.sheets:
             assignments = self.solution.schedule.get(sheet.id, [])
             if not assignments:
@@ -147,9 +208,11 @@ class FlowAnimator:
             sheet_end = max(a.end_time for a in assignments)
             if sheet_end <= current_time + 1e-9:
                 for part in sheet.assigned_parts:
-                    pid = part.product_id
-                    if pid in product_completed:
-                        product_completed[pid] += 1
+                    # Only count if part doesn't have its own schedule
+                    if part.id not in parts_with_part_schedule:
+                        pid = part.product_id
+                        if pid in product_completed:
+                            product_completed[pid] += 1
 
         partial_products = [
             (pid, product_completed.get(pid, 0), total)
@@ -164,25 +227,28 @@ class FlowAnimator:
         for i, station in enumerate(self.stations):
             x = i * (station_width + station_spacing)
             num_machines = self.station_machines[station.name]
+            is_sheet_station = self.station_is_sheet[station.name]
 
             # Center machines vertically
             y_offset = waiting_area_height + (
                 machine_area_height - num_machines * (machine_height + machine_spacing)
             ) / 2
 
-            # Draw station label
+            # Draw station label with type indicator
+            station_type = "Sheet" if is_sheet_station else "Part"
             ax.text(x + station_width/2, total_height + 0.3,
-                   f"{station.name}\n({num_machines} machines)",
-                   ha='center', va='bottom', fontsize=10, fontweight='bold')
+                   f"{station.name} [{station_type}]\n({num_machines} machines)",
+                   ha='center', va='bottom', fontsize=9, fontweight='bold')
 
             # Draw each machine
             for m in range(num_machines):
                 y = y_offset + m * (machine_height + machine_spacing)
 
-                # Machine box
+                # Machine box - different color for sheet vs part stations
+                box_color = 'lightblue' if is_sheet_station else 'lightyellow'
                 rect = mpatches.Rectangle((x, y), station_width, machine_height,
                                          linewidth=2, edgecolor='black',
-                                         facecolor='lightgray', alpha=0.3)
+                                         facecolor=box_color, alpha=0.3)
                 ax.add_patch(rect)
 
                 # Machine label
@@ -193,22 +259,37 @@ class FlowAnimator:
             separator_y = waiting_area_height - 0.1
             ax.plot([x, x + station_width], [separator_y, separator_y],
                     linestyle='--', color='gray', linewidth=1, alpha=0.7)
-            ax.text(x + station_width/2, separator_y - 0.05, "-------",
-                    ha='center', va='top', fontsize=8, color='gray')
 
-            # Skip waiting list for first station; list others line-by-line
-            if i > 0:
-                waiting_labels = waiting_by_station.get(station.name, [])
-                waiting_display = "\n".join(
-                    s.replace('SHEET_', '') for s in waiting_labels
-                ) if waiting_labels else "None"
-                ax.text(x + station_width/2, waiting_area_height / 2,
-                       f"Waiting:\n{waiting_display}",
-                       ha='center', va='center', fontsize=8, color='black')
+            # Show waiting list (sheets or parts depending on station type)
+            if i > 0:  # Skip first station
+                if is_sheet_station:
+                    waiting_labels = waiting_sheets_by_station.get(station.name, [])
+                    waiting_display = "\n".join(
+                        s.replace('sheet_', 'S') for s in waiting_labels[:5]
+                    ) if waiting_labels else "None"
+                    if len(waiting_labels) > 5:
+                        waiting_display += f"\n+{len(waiting_labels) - 5} more"
+                    ax.text(x + station_width/2, waiting_area_height / 2,
+                           f"Sheets:\n{waiting_display}",
+                           ha='center', va='center', fontsize=7, color='darkblue')
+                else:
+                    waiting_labels = waiting_parts_by_station.get(station.name, [])
+                    num_waiting = len(waiting_labels)
+                    # Show count and first few part IDs
+                    if num_waiting > 0:
+                        display_parts = [p.replace('row_', 'P')[:8] for p in waiting_labels[:3]]
+                        waiting_display = "\n".join(display_parts)
+                        if num_waiting > 3:
+                            waiting_display += f"\n+{num_waiting - 3} more"
+                    else:
+                        waiting_display = "None"
+                    ax.text(x + station_width/2, waiting_area_height / 2,
+                           f"Parts ({num_waiting}):\n{waiting_display}",
+                           ha='center', va='center', fontsize=7, color='darkgreen')
 
             station_positions[station.name] = (x, y_offset)
 
-        # Draw sheets on machines
+        # Draw sheets on sheet-based station machines
         sheets_drawn = 0
         for sheet in sheets_to_show:
             if sheet.id not in self.solution.schedule:
@@ -219,7 +300,6 @@ class FlowAnimator:
             # Find current assignment for this sheet
             for assignment in assignments:
                 if assignment.start_time <= current_time <= assignment.end_time:
-                    # Sheet is currently being processed
                     station_name = assignment.station_name
                     machine_idx = assignment.machine_index
 
@@ -234,28 +314,77 @@ class FlowAnimator:
                     progress = max(0, min(1, progress))
 
                     # Sheet representation
-                    sheet_width = station_width * 0.8
-                    sheet_height = machine_height * 0.6
-                    sheet_x = x_base + (station_width - sheet_width) / 2
-                    sheet_y = y + (machine_height - sheet_height) / 2
+                    sw = station_width * 0.8
+                    sh = machine_height * 0.6
+                    sheet_x = x_base + (station_width - sw) / 2
+                    sheet_y = y + (machine_height - sh) / 2
 
-                    # Color based on progress (green -> blue)
-                    color = plt.cm.RdYlGn(progress)
+                    # Color based on progress (green -> red)
+                    color = plt.cm.RdYlGn(1 - progress)
 
                     # Draw sheet
-                    sheet_rect = mpatches.Rectangle((sheet_x, sheet_y),
-                                                    sheet_width, sheet_height,
+                    sheet_rect = mpatches.Rectangle((sheet_x, sheet_y), sw, sh,
                                                     linewidth=2, edgecolor='darkblue',
                                                     facecolor=color, alpha=0.8)
                     ax.add_patch(sheet_rect)
 
                     # Sheet ID
-                    sheet_label = sheet.id.replace('SHEET_', '')
-                    ax.text(sheet_x + sheet_width/2, sheet_y + sheet_height/2,
+                    sheet_label = sheet.id.replace('sheet_', 'S')
+                    ax.text(sheet_x + sw/2, sheet_y + sh/2,
                            sheet_label, ha='center', va='center',
                            fontsize=7, fontweight='bold', color='white')
 
                     sheets_drawn += 1
+                    break
+
+        # Draw parts on part-based station machines
+        parts_drawn = 0
+        for part_id in parts_to_show:
+            if part_id not in self.solution.part_schedule:
+                continue
+
+            assignments = self.solution.part_schedule[part_id]
+
+            # Find current assignment for this part
+            for assignment in assignments:
+                if assignment.start_time <= current_time <= assignment.end_time:
+                    station_name = assignment.station_name
+                    machine_idx = assignment.machine_index
+
+                    if station_name not in station_positions:
+                        continue
+
+                    x_base, y_base = station_positions[station_name]
+                    y = y_base + machine_idx * (machine_height + machine_spacing)
+
+                    # Progress through the machine
+                    progress = (current_time - assignment.start_time) / assignment.duration
+                    progress = max(0, min(1, progress))
+
+                    # Part representation (smaller than sheet)
+                    pw = station_width * 0.6
+                    ph = machine_height * 0.4
+                    part_x = x_base + (station_width - pw) / 2
+                    part_y = y + (machine_height - ph) / 2
+
+                    # Color based on progress (green -> red)
+                    color = plt.cm.RdYlGn(1 - progress)
+
+                    # Draw part (rounded rectangle style)
+                    part_rect = mpatches.FancyBboxPatch(
+                        (part_x, part_y), pw, ph,
+                        boxstyle="round,pad=0.02,rounding_size=0.1",
+                        linewidth=1.5, edgecolor='darkgreen',
+                        facecolor=color, alpha=0.9)
+                    ax.add_patch(part_rect)
+
+                    # Part ID (shortened)
+                    part_label = part_id.replace('row_', 'P')[:6]
+                    ax.text(part_x + pw/2, part_y + ph/2,
+                           part_label, ha='center', va='center',
+                           fontsize=5, fontweight='bold', color='black')
+
+                    parts_drawn += 1
                     break
 
         # Draw arrows between stations
@@ -263,24 +392,36 @@ class FlowAnimator:
         for i in range(len(self.stations) - 1):
             x1 = i * (station_width + station_spacing) + station_width
             x2 = (i + 1) * (station_width + station_spacing)
-            y = arrow_y
 
-            ax.annotate('', xy=(x2, y), xytext=(x1, y),
-                       arrowprops=dict(arrowstyle='->', lw=2, color='gray', alpha=0.5))
+            # Different arrow style for sheet->part transition
+            curr_is_sheet = self.station_is_sheet[self.stations[i].name]
+            next_is_sheet = self.station_is_sheet[self.stations[i + 1].name]
 
-        # Set axis properties
-        # Products panel (right side) - pushed much higher
+            if curr_is_sheet and not next_is_sheet:
+                # Transition point: sheet separates into parts
+                ax.annotate('', xy=(x2, arrow_y), xytext=(x1, arrow_y),
+                           arrowprops=dict(arrowstyle='->', lw=3, color='red', alpha=0.7))
+                ax.text((x1 + x2) / 2, arrow_y + 0.15, "SPLIT",
+                       ha='center', va='bottom', fontsize=7, color='red', fontweight='bold')
+            else:
+                ax.annotate('', xy=(x2, arrow_y), xytext=(x1, arrow_y),
+                           arrowprops=dict(arrowstyle='->', lw=2, color='gray', alpha=0.5))
+
+        # Products panel (right side)
         panel_x = layout_width + station_spacing + info_panel_width / 2
-        panel_title_y = total_height + 6  # Increased from 0.2 to 0.8
+        panel_title_y = total_height + 0.5
         ax.text(panel_x, panel_title_y, "Products in progress",
                 ha='center', va='bottom', fontsize=10, fontweight='bold')
         if partial_products:
-            for idx, (pid, done, total) in enumerate(partial_products):
-                y = total_height + 5.8 - idx * 0.35  # Changed from total_height - 0.2
+            for idx, (pid, done, total) in enumerate(partial_products[:10]):
+                y = total_height + 0.3 - idx * 0.25
                 ax.text(panel_x, y, f"{pid}: {done}/{total}",
-                        ha='center', va='top', fontsize=8, color='black')
+                        ha='center', va='top', fontsize=7, color='black')
+            if len(partial_products) > 10:
+                ax.text(panel_x, total_height - 2.3, f"+{len(partial_products) - 10} more",
+                        ha='center', va='top', fontsize=7, color='gray')
         else:
-            ax.text(panel_x, total_height + 0.4, "None",  # Changed from total_height - 0.2
+            ax.text(panel_x, total_height + 0.2, "None",
                     ha='center', va='top', fontsize=8, color='gray')
 
         ax.set_xlim(-0.5, layout_width + info_panel_width + station_spacing * 2)
@@ -288,24 +429,24 @@ class FlowAnimator:
         ax.set_aspect('equal')
         ax.axis('off')
 
-        # Title with current time (converted to minutes:seconds for display)
+        # Title with current time
         current_mins = int(current_time // 60)
         current_secs = int(current_time % 60)
         makespan_mins = int(self.makespan // 60)
         makespan_secs = int(self.makespan % 60)
-        title = f"Sheet Flow Through Stations - Time: {current_mins}m {current_secs}s / {makespan_mins}m {makespan_secs}s"
-        title += f"\nActive Sheets: {sheets_drawn}"
+        title = f"Flow Through Stations - Time: {current_mins}m {current_secs}s / {makespan_mins}m {makespan_secs}s"
+        title += f"\nActive: {sheets_drawn} sheets, {parts_drawn} parts"
         ax.set_title(title, fontsize=14, fontweight='bold', pad=20)
 
-        # Add legend - positioned at top left, pushed 5cm higher
+        # Add legend
         legend_elements = [
+            mpatches.Patch(facecolor='lightblue', edgecolor='black', label='Sheet Station', alpha=0.5),
+            mpatches.Patch(facecolor='lightyellow', edgecolor='black', label='Part Station', alpha=0.5),
             mpatches.Patch(facecolor='lightgreen', edgecolor='darkblue', label='Starting'),
-            mpatches.Patch(facecolor='yellow', edgecolor='darkblue', label='Processing'),
             mpatches.Patch(facecolor='lightcoral', edgecolor='darkblue', label='Finishing')
         ]
-        # bbox_to_anchor: (x, y) where y > 1 pushes it above the plot area
-        ax.legend(handles=legend_elements, loc='upper left', fontsize=10,
-                 bbox_to_anchor=(0, 1.5))
+        ax.legend(handles=legend_elements, loc='upper left', fontsize=9,
+                 bbox_to_anchor=(0, 1.3))
 
     def create_gantt_chart(self, output_path: str = "output/gantt_chart.png",
                           max_sheets: int = None):
