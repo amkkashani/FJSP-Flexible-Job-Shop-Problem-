@@ -100,6 +100,7 @@ def main():
     generate_animation = report_config.get("generate_animation", True)
     generate_gantt = report_config.get("generate_gantt_chart", True)
     generate_fbf = report_config.get("generate_frame_by_frame", False)
+    generate_flow_frames_v9 = report_config.get("generate_flow_frames_v9", False)
 
     # Load animation settings
     animation_config = config.get("animation_settings", {})
@@ -115,7 +116,12 @@ def main():
     fbf_config = config.get("frame_by_frame_settings", {})
     fbf_max_frames = fbf_config.get("max_frames", 100)
 
-    if generate_animation or generate_gantt or generate_fbf:
+    # Load flow-frames settings
+    flow_frames_config = config.get("flow_frames_settings", {})
+    flow_frames_max_frames = flow_frames_config.get("max_frames", fbf_max_frames)
+    flow_frames_zip = flow_frames_config.get("zip", False)
+
+    if generate_animation or generate_gantt or generate_fbf or generate_flow_frames_v9:
         print("\n" + "=" * 60)
         print("GENERATING REPORTS")
         print("=" * 60)
@@ -153,6 +159,27 @@ def main():
             )
         else:
             print("\nSkipping frame-by-frame generation (disabled in config)")
+
+        if generate_flow_frames_v9:
+            print("\nGenerating flow frames (v9)...")
+            from generate_flow_frames_v9 import generate_flow_frames
+            print(f"  Settings: max_frames={flow_frames_max_frames}, zip={flow_frames_zip}")
+            sheet_parts_path = output_folder / "sheet_parts.csv"
+            events_path = output_folder / "event_summary.csv"
+            flow_frames_dir = output_folder / "flow_frames_v9"
+            if sheet_parts_path.exists() and events_path.exists():
+                generate_flow_frames(
+                    config_path=config_path,
+                    sheet_parts_path=str(sheet_parts_path),
+                    events_path=str(events_path),
+                    outdir=str(flow_frames_dir),
+                    max_frames=flow_frames_max_frames,
+                    zip_output=flow_frames_zip
+                )
+            else:
+                print("\nSkipping flow frames (v9) - missing sheet_parts.csv or event_summary.csv")
+        else:
+            print("\nSkipping flow frames (v9) generation (disabled in config)")
     else:
         print("\n" + "=" * 60)
         print("Skipping report generation (all reports disabled in config)")

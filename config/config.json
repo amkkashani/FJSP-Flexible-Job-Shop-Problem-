@@ -20,10 +20,15 @@
   "report": {
     "generate_gantt_chart": true,
     "generate_animation": false,
-    "generate_frame_by_frame": true
+    "generate_frame_by_frame": false,
+    "generate_flow_frames_v9": true
   },
   "frame_by_frame_settings": {
     "max_frames": 100
+  },
+  "flow_frames_settings": {
+    "max_frames": null,
+    "zip": false
   },
   "animation_settings": {
     "fps": 15,
