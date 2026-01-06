@@ -317,6 +317,152 @@ class OutputGenerator:
 
         print(f"Schedule CSV saved to: {output_path}")
 
+    def export_part_timing_csv(self):
+        """Export detailed part timing information to CSV."""
+        output_path = self.run_folder / "part_timing.csv"
+
+        all_parts: Dict[str, object] = {}
+        part_to_sheet: Dict[str, str] = {}
+        for sheet in self.solution.sheets:
+            for part in sheet.assigned_parts:
+                all_parts[part.id] = part
+                part_to_sheet[part.id] = sheet.id
+
+        rows = []
+        for part_id, part in all_parts.items():
+            sheet_id = part_to_sheet.get(part_id, "")
+
+            sheet_assignments = self.solution.schedule.get(sheet_id, [])
+            for sa in sorted(sheet_assignments, key=lambda x: x.start_time):
+                rows.append({
+                    'part_id': part_id,
+                    'sheet_id': sheet_id,
+                    'product_id': part.product_id,
+                    'station': sa.station_name,
+                    'station_type': 'sheet',
+                    'machine': sa.machine_index,
+                    'start_time': sa.start_time,
+                    'end_time': sa.end_time,
+                    'duration': sa.duration,
+                    'process_time_contribution': part.get_process_time(sa.station_name)
+                })
+
+            part_assignments = self.solution.part_schedule.get(part_id, [])
+            for pa in sorted(part_assignments, key=lambda x: x.start_time):
+                rows.append({
+                    'part_id': part_id,
+                    'sheet_id': sheet_id,
+                    'product_id': part.product_id,
+                    'station': pa.station_name,
+                    'station_type': 'part',
+                    'machine': pa.machine_index,
+                    'start_time': pa.start_time,
+                    'end_time': pa.end_time,
+                    'duration': pa.duration,
+                    'process_time_contribution': part.get_process_time(pa.station_name)
+                })
+
+        rows.sort(key=lambda x: (x['part_id'], x['start_time']))
+
+        with open(output_path, 'w', newline='', encoding='utf-8') as f:
+            fieldnames = [
+                'part_id', 'sheet_id', 'product_id', 'station', 'station_type',
+                'machine', 'start_time', 'end_time', 'duration', 'process_time_contribution'
+            ]
+            writer = csv.DictWriter(f, fieldnames=fieldnames)
+            writer.writeheader()
+            writer.writerows(rows)
+
+        print(f"Part timing CSV saved to: {output_path}")
+
+    def export_event_summary_csv(self):
+        """Export all events in chronological order to CSV."""
+        output_path = self.run_folder / "event_summary.csv"
+
+        part_to_sheet: Dict[str, str] = {}
+        part_to_product: Dict[str, str] = {}
+        sheet_to_products: Dict[str, str] = {}
+        for sheet in self.solution.sheets:
+            products = set()
+            for part in sheet.assigned_parts:
+                part_to_sheet[part.id] = sheet.id
+                part_to_product[part.id] = part.product_id
+                products.add(part.product_id)
+            sheet_to_products[sheet.id] = "; ".join(sorted(products)) if products else ""
+
+        events = []
+
+        for sheet_id, assignments in self.solution.schedule.items():
+            sheet = self.solution.get_sheet_by_id(sheet_id)
+            num_parts = len(sheet.assigned_parts) if sheet else 0
+            for a in assignments:
+                events.append({
+                    'time': a.start_time,
+                    'end_time': a.end_time,
+                    'event_type': 'sheet_start',
+                    'entity_id': sheet_id,
+                    'sheet_id': sheet_id,
+                    'product_id': sheet_to_products.get(sheet_id, ""),
+                    'station': a.station_name,
+                    'machine': a.machine_index,
+                    'num_parts': num_parts,
+                    'duration': a.duration
+                })
+                events.append({
+                    'time': a.end_time,
+                    'end_time': a.end_time,
+                    'event_type': 'sheet_end',
+                    'entity_id': sheet_id,
+                    'sheet_id': sheet_id,
+                    'product_id': sheet_to_products.get(sheet_id, ""),
+                    'station': a.station_name,
+                    'machine': a.machine_index,
+                    'num_parts': num_parts,
+                    'duration': a.duration
+                })
+
+        for part_id, assignments in self.solution.part_schedule.items():
+            sheet_id = part_to_sheet.get(part_id, "")
+            product_id = part_to_product.get(part_id, "")
+            for a in assignments:
+                events.append({
+                    'time': a.start_time,
+                    'end_time': a.end_time,
+                    'event_type': 'part_start',
+                    'entity_id': part_id,
+                    'sheet_id': sheet_id,
+                    'product_id': product_id,
+                    'station': a.station_name,
+                    'machine': a.machine_index,
+                    'num_parts': 1,
+                    'duration': a.duration
+                })
+                events.append({
+                    'time': a.end_time,
+                    'end_time': a.end_time,
+                    'event_type': 'part_end',
+                    'entity_id': part_id,
+                    'sheet_id': sheet_id,
+                    'product_id': product_id,
+                    'station': a.station_name,
+                    'machine': a.machine_index,
+                    'num_parts': 1,
+                    'duration': a.duration
+                })
+
+        events.sort(key=lambda x: (x['time'], x['event_type']))
+
+        with open(output_path, 'w', newline='', encoding='utf-8') as f:
+            fieldnames = [
+                'time', 'end_time', 'event_type', 'entity_id', 'sheet_id', 'product_id',
+                'station', 'machine', 'num_parts', 'duration'
+            ]
+            writer = csv.DictWriter(f, fieldnames=fieldnames)
+            writer.writeheader()
+            writer.writerows(events)
+
+        print(f"Event summary CSV saved to: {output_path}")
+
     def export_solution_summary(self):
         """Export overall solution summary to text file."""
         output_path = self.run_folder / "solution_summary.txt"
@@ -359,6 +505,8 @@ class OutputGenerator:
             f.write("- sheet_summary.csv: Sheet statistics\n")
             f.write("- product_summary.csv: Product statistics\n")
             f.write("- schedule.csv: Station scheduling\n")
+            f.write("- part_timing.csv: Part timing across stations\n")
+            f.write("- event_summary.csv: Chronological event list\n")
             f.write("- sheets/: Individual sheet images\n")
 
         print(f"Solution summary saved to: {output_path}")
@@ -373,6 +521,8 @@ class OutputGenerator:
         self.export_sheet_summary_csv()
         self.export_product_summary_csv()
         self.export_schedule_csv()
+        self.export_part_timing_csv()
+        self.export_event_summary_csv()
         self.export_solution_summary()
 
         # Generate sheet images

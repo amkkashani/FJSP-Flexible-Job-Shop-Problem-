@@ -5,7 +5,6 @@ showing the flow from sheet processing through part separation and individual pr
 """
 
 import sys
-import csv
 from pathlib import Path
 from typing import Dict, List, Tuple, Set
 import json
@@ -535,132 +534,6 @@ class FrameByFrameGenerator:
         ax.legend(handles=legend_elements, loc='upper left', fontsize=8,
                  bbox_to_anchor=(0, 1.15))
 
-    def generate_part_timing_csv(self, output_path: str = "output/frame_by_frame/part_timing.csv"):
-        """Generate CSV with detailed part timing information."""
-        Path(output_path).parent.mkdir(parents=True, exist_ok=True)
-
-        rows = []
-
-        for part_id, part in self.all_parts.items():
-            sheet_id = self.part_to_sheet.get(part_id, "")
-
-            # Get sheet station times (when part was on sheet)
-            sheet_assignments = self.solution.schedule.get(sheet_id, [])
-            sheet_end_time = 0.0
-            for sa in sorted(sheet_assignments, key=lambda x: x.start_time):
-                rows.append({
-                    'part_id': part_id,
-                    'sheet_id': sheet_id,
-                    'product_id': part.product_id,
-                    'station': sa.station_name,
-                    'station_type': 'sheet',
-                    'machine': sa.machine_index,
-                    'start_time': sa.start_time,
-                    'end_time': sa.end_time,
-                    'duration': sa.duration,
-                    'process_time_contribution': part.get_process_time(sa.station_name)
-                })
-                sheet_end_time = max(sheet_end_time, sa.end_time)
-
-            # Get part station times (after separation)
-            part_assignments = self.solution.part_schedule.get(part_id, [])
-            for pa in sorted(part_assignments, key=lambda x: x.start_time):
-                rows.append({
-                    'part_id': part_id,
-                    'sheet_id': sheet_id,
-                    'product_id': part.product_id,
-                    'station': pa.station_name,
-                    'station_type': 'part',
-                    'machine': pa.machine_index,
-                    'start_time': pa.start_time,
-                    'end_time': pa.end_time,
-                    'duration': pa.duration,
-                    'process_time_contribution': part.get_process_time(pa.station_name)
-                })
-
-        # Sort by part_id then start_time
-        rows.sort(key=lambda x: (x['part_id'], x['start_time']))
-
-        # Write CSV
-        with open(output_path, 'w', newline='', encoding='utf-8') as f:
-            fieldnames = ['part_id', 'sheet_id', 'product_id', 'station', 'station_type',
-                         'machine', 'start_time', 'end_time', 'duration', 'process_time_contribution']
-            writer = csv.DictWriter(f, fieldnames=fieldnames)
-            writer.writeheader()
-            writer.writerows(rows)
-
-        print(f"Part timing CSV saved to: {output_path}")
-        return rows
-
-    def generate_event_summary_csv(self, output_path: str = "output/frame_by_frame/event_summary.csv"):
-        """Generate CSV with all events in chronological order."""
-        Path(output_path).parent.mkdir(parents=True, exist_ok=True)
-
-        events = []
-
-        # Sheet events
-        for sheet_id, assignments in self.solution.schedule.items():
-            sheet = self.solution.get_sheet_by_id(sheet_id)
-            num_parts = len(sheet.assigned_parts) if sheet else 0
-            for a in assignments:
-                events.append({
-                    'time': a.start_time,
-                    'end_time': a.end_time,
-                    'event_type': 'sheet_start',
-                    'entity_id': sheet_id,
-                    'station': a.station_name,
-                    'machine': a.machine_index,
-                    'num_parts': num_parts,
-                    'duration': a.duration
-                })
-                events.append({
-                    'time': a.end_time,
-                    'end_time': a.end_time,
-                    'event_type': 'sheet_end',
-                    'entity_id': sheet_id,
-                    'station': a.station_name,
-                    'machine': a.machine_index,
-                    'num_parts': num_parts,
-                    'duration': a.duration
-                })
-
-        # Part events
-        for part_id, assignments in self.solution.part_schedule.items():
-            for a in assignments:
-                events.append({
-                    'time': a.start_time,
-                    'end_time': a.end_time,
-                    'event_type': 'part_start',
-                    'entity_id': part_id,
-                    'station': a.station_name,
-                    'machine': a.machine_index,
-                    'num_parts': 1,
-                    'duration': a.duration
-                })
-                events.append({
-                    'time': a.end_time,
-                    'end_time': a.end_time,
-                    'event_type': 'part_end',
-                    'entity_id': part_id,
-                    'station': a.station_name,
-                    'machine': a.machine_index,
-                    'num_parts': 1,
-                    'duration': a.duration
-                })
-
-        # Sort by time
-        events.sort(key=lambda x: (x['time'], x['event_type']))
-
-        # Write CSV
-        with open(output_path, 'w', newline='', encoding='utf-8') as f:
-            fieldnames = ['time', 'end_time', 'event_type', 'entity_id', 'station', 'machine', 'num_parts', 'duration']
-            writer = csv.DictWriter(f, fieldnames=fieldnames)
-            writer.writeheader()
-            writer.writerows(events)
-
-        print(f"Event summary CSV saved to: {output_path}")
-        return events
-
     def generate_frames(self, output_dir: str = "output/frame_by_frame",
                        max_frames: int = None):
         """
@@ -994,10 +867,6 @@ def generate_frame_by_frame(solution: Solution, problem: Problem,
                         start and end). If False, use original event-based frames.
     """
     generator = FrameByFrameGenerator(solution, problem)
-
-    # Generate CSV files
-    generator.generate_part_timing_csv(f"{output_dir}/part_timing.csv")
-    generator.generate_event_summary_csv(f"{output_dir}/event_summary.csv")
 
     # Generate frames
     if use_part_frames:
