@@ -494,3 +494,22 @@ For issues and questions, please contact the development team.
 ## Demo
 
 ![Output animation](../videos/output.gif)
+
+---
+
+## Nesting Sheets
+
+<table>
+  <tr>
+    <td><img src="../videos/sheets/sheet_00000.png" alt="Sheet 00000" width="25%"></td>
+    <td><img src="../videos/sheets/sheet_00001.png" alt="Sheet 00001" width="25%"></td>
+    <td><img src="../videos/sheets/sheet_00002.png" alt="Sheet 00002" width="25%"></td>
+    <td><img src="../videos/sheets/sheet_00003.png" alt="Sheet 00003" width="25%"></td>
+  </tr>
+  <tr>
+    <td><img src="../videos/sheets/sheet_00004.png" alt="Sheet 00004" width="25%"></td>
+    <td><img src="../videos/sheets/sheet_00005.png" alt="Sheet 00005" width="25%"></td>
+    <td><img src="../videos/sheets/sheet_00006.png" alt="Sheet 00006" width="25%"></td>
+    <td><img src="../videos/sheets/sheet_00007.png" alt="Sheet 00007" width="25%"></td>
+  </tr>
+</table>
