@@ -488,3 +488,9 @@ This project is proprietary software.
 ## Support
 
 For issues and questions, please contact the development team.
+
+---
+
+## Demo
+
+![Output animation](../videos/output.gif)
