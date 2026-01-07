@@ -2,6 +2,36 @@
 
 A comprehensive solution for solving Flexible Job Shop Scheduling Problems (FJSP) in sheet-based manufacturing systems. Parts are packed into sheets, and sheets flow through a sequence of processing stations.
 
+---
+
+## Demo
+
+![Output animation](../videos/output.gif)
+
+---
+
+## Nesting Sheets (Samples)
+
+<table>
+  <tr>
+    <td width="50%"><img src="../videos/sheets/sheet_00000.png" alt="Sheet 00000" width="100%"></td>
+    <td width="50%"><img src="../videos/sheets/sheet_00001.png" alt="Sheet 00001" width="100%"></td>
+  </tr>
+  <tr>
+    <td width="50%"><img src="../videos/sheets/sheet_00002.png" alt="Sheet 00002" width="100%"></td>
+    <td width="50%"><img src="../videos/sheets/sheet_00003.png" alt="Sheet 00003" width="100%"></td>
+  </tr>
+  <tr>
+    <td width="50%"><img src="../videos/sheets/sheet_00004.png" alt="Sheet 00004" width="100%"></td>
+    <td width="50%"><img src="../videos/sheets/sheet_00005.png" alt="Sheet 00005" width="100%"></td>
+  </tr>
+  <tr>
+    <td width="50%"><img src="../videos/sheets/sheet_00006.png" alt="Sheet 00006" width="100%"></td>
+    <td width="50%"><img src="../videos/sheets/sheet_00007.png" alt="Sheet 00007" width="100%"></td>
+  </tr>
+</table>
+
+
 ## Table of Contents
 
 1. [Overview](#overview)
@@ -490,30 +520,3 @@ This project is proprietary software.
 For issues and questions, please contact the development team.
 
 ---
-
-## Demo
-
-![Output animation](../videos/output.gif)
-
----
-
-## Nesting Sheets (Samples)
-
-<table>
-  <tr>
-    <td width="50%"><img src="../videos/sheets/sheet_00000.png" alt="Sheet 00000" width="100%"></td>
-    <td width="50%"><img src="../videos/sheets/sheet_00001.png" alt="Sheet 00001" width="100%"></td>
-  </tr>
-  <tr>
-    <td width="50%"><img src="../videos/sheets/sheet_00002.png" alt="Sheet 00002" width="100%"></td>
-    <td width="50%"><img src="../videos/sheets/sheet_00003.png" alt="Sheet 00003" width="100%"></td>
-  </tr>
-  <tr>
-    <td width="50%"><img src="../videos/sheets/sheet_00004.png" alt="Sheet 00004" width="100%"></td>
-    <td width="50%"><img src="../videos/sheets/sheet_00005.png" alt="Sheet 00005" width="100%"></td>
-  </tr>
-  <tr>
-    <td width="50%"><img src="../videos/sheets/sheet_00006.png" alt="Sheet 00006" width="100%"></td>
-    <td width="50%"><img src="../videos/sheets/sheet_00007.png" alt="Sheet 00007" width="100%"></td>
-  </tr>
-</table>
