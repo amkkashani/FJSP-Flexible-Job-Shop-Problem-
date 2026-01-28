@@ -501,23 +501,24 @@ class FlowAnimator:
                        ha='center', va='center', fontsize=6, fontweight='bold')
 
         # Formatting
-        ax.set_xlabel('Time (minutes)', fontsize=12)
+        ax.set_xlabel('Time (hh:mm)', fontsize=12)
         ax.set_ylabel('Sheet ID', fontsize=12)
         ax.set_title('Gantt Chart - Sheet Processing Schedule', fontsize=14, fontweight='bold')
         ax.set_yticks(range(len(sheets_to_show)))
         ax.set_yticklabels([s.id for s in sheets_to_show], fontsize=8)
 
-        # Convert x-axis to minutes:seconds for display
+        # Convert x-axis to hh:mm for display
         num_ticks = 10
         tick_positions_seconds = np.linspace(0, self.makespan, num_ticks)
-        tick_labels_min_sec = []
+        tick_labels_hh_mm = []
         for t in tick_positions_seconds:
-            mins = int(t // 60)
-            # secs = int(t % 60)
-            tick_labels_min_sec.append(f"{mins}m")
+            total_minutes = int(t // 60)
+            hours = total_minutes // 60
+            minutes = total_minutes % 60
+            tick_labels_hh_mm.append(f"{hours:02d}:{minutes:02d}")
 
         ax.set_xticks(tick_positions_seconds)
-        ax.set_xticklabels(tick_labels_min_sec)
+        ax.set_xticklabels(tick_labels_hh_mm)
 
         # Set x-axis limit to show full makespan
         ax.set_xlim(0, self.makespan)
