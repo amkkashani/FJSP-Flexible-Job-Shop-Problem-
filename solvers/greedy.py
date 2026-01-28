@@ -168,7 +168,8 @@ class GreedySolver(Solver):
             current_time = 0.0
 
             for station in sheet_stations:
-                process_time = sheet.get_station_time(station.name)
+                workers = max(1, station.workers_per_machine)
+                process_time = sheet.get_station_time(station.name) / workers
 
                 # Skip station if process time is 0
                 if process_time <= 0:
@@ -223,7 +224,8 @@ class GreedySolver(Solver):
                 current_time = part_current_time[part.id]
 
                 for station in part_stations:
-                    process_time = part.get_process_time(station.name)
+                    workers = max(1, station.workers_per_machine)
+                    process_time = part.get_process_time(station.name) / workers
 
                     # Skip station if process time is 0
                     if process_time <= 0:

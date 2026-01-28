@@ -53,6 +53,7 @@ class Station:
     order_index: int
     num_machines: int
     is_sheet: bool
+    workers_per_machine: int
 
 
 def load_stations(config: dict) -> List[Station]:
@@ -65,6 +66,7 @@ def load_stations(config: dict) -> List[Station]:
                 order_index=int(station_cfg["order_index"]),
                 num_machines=int(station_cfg["num_machines"]),
                 is_sheet=bool(station_cfg.get("sheet", False)),
+                workers_per_machine=max(1, int(station_cfg.get("workerPerMachine", 1))),
             )
         )
     stations.sort(key=lambda s: s.order_index)
@@ -353,7 +355,8 @@ def draw_frame(
         ax.text(
             x_pos + width / 2,
             STATION_Y_BASE + STATION_HEIGHT + 0.08,
-            f"{station.name}\n[{'SHEET' if station.is_sheet else 'PART'}]\n({station.num_machines} M)",
+            f"{station.name}\n[{'SHEET' if station.is_sheet else 'PART'}]\n"
+            f"({station.num_machines} M, {station.workers_per_machine} W/M)",
             ha="center", va="bottom", fontsize=11, fontweight="bold",
             color=("red" if station.is_sheet else "darkgreen"),
             transform=ax.transAxes,

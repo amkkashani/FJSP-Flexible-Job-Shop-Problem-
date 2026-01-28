@@ -89,6 +89,7 @@ class Problem:
                 name=s["name"],
                 order_index=s["order_index"],
                 num_machines=s.get("num_machines", 1),
+                workers_per_machine=max(1, int(s.get("workerPerMachine", 1))),
                 sheet=s.get("sheet", True)
             )
             for s in station_config["stations"]
