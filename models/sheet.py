@@ -17,12 +17,14 @@ class Sheet:
         capacity: Maximum area in m²
         width: Sheet width in meters
         height: Sheet height in meters
+        material: Material code for all parts in this sheet
         assigned_parts: Parts assigned to this sheet
     """
     id: str
     capacity: float
     width: float
     height: float
+    material: Optional[str] = None
     assigned_parts: List[Part] = field(default_factory=list)
     placements: Dict[str, Tuple[float, float, float, float, bool]] = field(default_factory=dict)
     _shelves: List[Dict[str, float]] = field(default_factory=list, repr=False)
@@ -30,6 +32,17 @@ class Sheet:
     def total_area(self) -> float:
         """Sum of areas of all assigned parts."""
         return sum(part.area for part in self.assigned_parts)
+
+    def get_material(self) -> str:
+        """Return the sheet material (single value or joined list if mixed)."""
+        if self.material is not None:
+            return self.material
+        materials = {part.material for part in self.assigned_parts}
+        if not materials:
+            return ""
+        if len(materials) == 1:
+            return next(iter(materials))
+        return "; ".join(sorted(materials))
 
     def remaining_capacity(self) -> float:
         """Remaining capacity = capacity - total_area()."""
@@ -53,6 +66,8 @@ class Sheet:
 
     def can_fit(self, part: Part, allow_rotate: bool = True) -> bool:
         """Check if a part can fit based on area and 2D placement."""
+        if self.material is not None and part.material != self.material:
+            return False
         if part.area > self.remaining_capacity():
             return False
         return self._find_placement(part, allow_rotate) is not None
@@ -121,6 +136,9 @@ class Sheet:
         if placement is None:
             return False
 
+        if self.material is None:
+            self.material = part.material
+
         x, y, w, h, rotated, shelf_index = placement
         if shelf_index is None:
             self._shelves.append({"y": y, "height": h, "x": w})
@@ -140,7 +158,10 @@ class Sheet:
         return [part.id for part in self.assigned_parts]
 
     def __repr__(self) -> str:
+        material = self.get_material()
+        material_label = material if material else "unknown"
         return (f"Sheet(id={self.id}, parts={self.num_parts()}, "
-                f"used={self.total_area():.4f}/{self.capacity:.4f}m², "
-                f"waste={self.waste():.4f}m², "
+                f"material={material_label}, "
+                f"used={self.total_area():.4f}/{self.capacity:.4f}mAı, "
+                f"waste={self.waste():.4f}mAı, "
                 f"size={self.width}x{self.height}m)")

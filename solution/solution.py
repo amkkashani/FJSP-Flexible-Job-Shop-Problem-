@@ -121,6 +121,11 @@ class Solution:
         for sheet in self.sheets:
             if sheet.total_area() > sheet.capacity + 1e-9:  # Small tolerance for floating point
                 return False
+            materials = {part.material for part in sheet.assigned_parts}
+            if len(materials) > 1:
+                return False
+            if sheet.material is not None and materials and sheet.material not in materials:
+                return False
 
             if sheet.placements:
                 if len(sheet.placements) != len(sheet.assigned_parts):

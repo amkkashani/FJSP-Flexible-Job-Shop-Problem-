@@ -39,6 +39,10 @@ class OutputGenerator:
         self.output_base = Path("output")
         self.run_folder = None
 
+    def _get_sheet_material(self, sheet: Sheet) -> str:
+        material = sheet.get_material()
+        return material if material else "unknown"
+
     def create_output_folder(self) -> Path:
         """Create output folder structure based on input file name."""
         # Get base name from data file (without extension)
@@ -161,7 +165,9 @@ class OutputGenerator:
 
         # Title with sheet info
         utilization = (sheet.total_area() / sheet.capacity) * 100
+        material = self._get_sheet_material(sheet)
         title = (f"{sheet.id}\n"
+                f"Material: {material} | "
                 f"Parts: {sheet.num_parts()} | "
                 f"Products: {len(products)} | "
                 f"Used: {sheet.total_area():.4f}m2 | "
@@ -211,13 +217,15 @@ class OutputGenerator:
 
         with open(output_path, 'w', newline='', encoding='utf-8') as f:
             writer = csv.writer(f)
-            writer.writerow(['Sheet ID', 'Part ID', 'ElemIdent', 'Product ID',
+            writer.writerow(['Sheet ID', 'Sheet Material', 'Part ID', 'ElemIdent', 'Product ID',
                            'Material', 'Area (m2)', 'Length (mm)', 'Width (mm)'])
 
             for sheet in self.solution.sheets:
+                sheet_material = self._get_sheet_material(sheet)
                 for part in sheet.assigned_parts:
                     writer.writerow([
                         sheet.id,
+                        sheet_material,
                         part.id,
                         part.elem_ident,
                         part.product_id,
@@ -235,7 +243,7 @@ class OutputGenerator:
 
         with open(output_path, 'w', newline='', encoding='utf-8') as f:
             writer = csv.writer(f)
-            writer.writerow(['Sheet ID', 'Num Parts', 'Num Products', 'Used Area (m2)',
+            writer.writerow(['Sheet ID', 'Material', 'Num Parts', 'Num Products', 'Used Area (m2)',
                            'Capacity (m2)', 'Waste (m2)', 'Utilization (%)', 'Products'])
 
             for sheet in self.solution.sheets:
@@ -247,9 +255,11 @@ class OutputGenerator:
 
                 utilization = (sheet.total_area() / sheet.capacity) * 100
                 product_list = "; ".join(sorted(products.keys()))
+                material = self._get_sheet_material(sheet)
 
                 writer.writerow([
                     sheet.id,
+                    material,
                     sheet.num_parts(),
                     len(products),
                     f"{sheet.total_area():.6f}",
@@ -275,11 +285,15 @@ class OutputGenerator:
                 if part.product_id not in product_sheets:
                     product_sheets[part.product_id] = set()
                 product_sheets[part.product_id].add(sheet.id)
+        sheet_materials = {
+            sheet.id: self._get_sheet_material(sheet)
+            for sheet in self.solution.sheets
+        }
 
         with open(output_path, 'w', newline='', encoding='utf-8') as f:
             writer = csv.writer(f)
             writer.writerow(['Product ID', 'Num Parts', 'Num Sheets',
-                           'Completion Time', 'Sheet IDs'])
+                           'Completion Time', 'Sheet IDs', 'Sheet Materials'])
 
             for product_id in sorted(self.problem.products.keys()):
                 product = self.problem.products[product_id]
@@ -291,7 +305,8 @@ class OutputGenerator:
                     len(product.part_ids),
                     len(sheets),
                     f"{completion:.2f}",
-                    "; ".join(sheets)
+                    "; ".join(sheets),
+                    "; ".join(sheet_materials.get(sheet_id, "unknown") for sheet_id in sheets)
                 ])
 
         print(f"Product summary CSV saved to: {output_path}")
@@ -299,15 +314,20 @@ class OutputGenerator:
     def export_schedule_csv(self):
         """Export schedule to CSV."""
         output_path = self.run_folder / "schedule.csv"
+        sheet_materials = {
+            sheet.id: self._get_sheet_material(sheet)
+            for sheet in self.solution.sheets
+        }
 
         with open(output_path, 'w', newline='', encoding='utf-8') as f:
             writer = csv.writer(f)
-            writer.writerow(['Sheet ID', 'Station', 'Machine', 'Start Time', 'End Time', 'Duration'])
+            writer.writerow(['Sheet ID', 'Material', 'Station', 'Machine', 'Start Time', 'End Time', 'Duration'])
 
             for sheet_id, assignments in self.solution.schedule.items():
                 for assignment in sorted(assignments, key=lambda a: a.start_time):
                     writer.writerow([
                         sheet_id,
+                        sheet_materials.get(sheet_id, "unknown"),
                         assignment.station_name,
                         assignment.machine_index,
                         f"{assignment.start_time:.2f}",
@@ -323,7 +343,9 @@ class OutputGenerator:
 
         all_parts: Dict[str, object] = {}
         part_to_sheet: Dict[str, str] = {}
+        sheet_materials: Dict[str, str] = {}
         for sheet in self.solution.sheets:
+            sheet_materials[sheet.id] = self._get_sheet_material(sheet)
             for part in sheet.assigned_parts:
                 all_parts[part.id] = part
                 part_to_sheet[part.id] = sheet.id
@@ -331,12 +353,14 @@ class OutputGenerator:
         rows = []
         for part_id, part in all_parts.items():
             sheet_id = part_to_sheet.get(part_id, "")
+            sheet_material = sheet_materials.get(sheet_id, "unknown")
 
             sheet_assignments = self.solution.schedule.get(sheet_id, [])
             for sa in sorted(sheet_assignments, key=lambda x: x.start_time):
                 rows.append({
                     'part_id': part_id,
                     'sheet_id': sheet_id,
+                    'sheet_material': sheet_material,
                     'product_id': part.product_id,
                     'station': sa.station_name,
                     'station_type': 'sheet',
@@ -352,6 +376,7 @@ class OutputGenerator:
                 rows.append({
                     'part_id': part_id,
                     'sheet_id': sheet_id,
+                    'sheet_material': sheet_material,
                     'product_id': part.product_id,
                     'station': pa.station_name,
                     'station_type': 'part',
@@ -366,7 +391,7 @@ class OutputGenerator:
 
         with open(output_path, 'w', newline='', encoding='utf-8') as f:
             fieldnames = [
-                'part_id', 'sheet_id', 'product_id', 'station', 'station_type',
+                'part_id', 'sheet_id', 'sheet_material', 'product_id', 'station', 'station_type',
                 'machine', 'start_time', 'end_time', 'duration', 'process_time_contribution'
             ]
             writer = csv.DictWriter(f, fieldnames=fieldnames)
@@ -382,8 +407,10 @@ class OutputGenerator:
         part_to_sheet: Dict[str, str] = {}
         part_to_product: Dict[str, str] = {}
         sheet_to_products: Dict[str, str] = {}
+        sheet_materials: Dict[str, str] = {}
         for sheet in self.solution.sheets:
             products = set()
+            sheet_materials[sheet.id] = self._get_sheet_material(sheet)
             for part in sheet.assigned_parts:
                 part_to_sheet[part.id] = sheet.id
                 part_to_product[part.id] = part.product_id
@@ -402,6 +429,7 @@ class OutputGenerator:
                     'event_type': 'sheet_start',
                     'entity_id': sheet_id,
                     'sheet_id': sheet_id,
+                    'sheet_material': sheet_materials.get(sheet_id, "unknown"),
                     'product_id': sheet_to_products.get(sheet_id, ""),
                     'station': a.station_name,
                     'machine': a.machine_index,
@@ -414,6 +442,7 @@ class OutputGenerator:
                     'event_type': 'sheet_end',
                     'entity_id': sheet_id,
                     'sheet_id': sheet_id,
+                    'sheet_material': sheet_materials.get(sheet_id, "unknown"),
                     'product_id': sheet_to_products.get(sheet_id, ""),
                     'station': a.station_name,
                     'machine': a.machine_index,
@@ -431,6 +460,7 @@ class OutputGenerator:
                     'event_type': 'part_start',
                     'entity_id': part_id,
                     'sheet_id': sheet_id,
+                    'sheet_material': sheet_materials.get(sheet_id, "unknown"),
                     'product_id': product_id,
                     'station': a.station_name,
                     'machine': a.machine_index,
@@ -443,6 +473,7 @@ class OutputGenerator:
                     'event_type': 'part_end',
                     'entity_id': part_id,
                     'sheet_id': sheet_id,
+                    'sheet_material': sheet_materials.get(sheet_id, "unknown"),
                     'product_id': product_id,
                     'station': a.station_name,
                     'machine': a.machine_index,
@@ -479,6 +510,7 @@ class OutputGenerator:
                     'event_type': 'part_complete',
                     'entity_id': part_id,
                     'sheet_id': sheet_id,
+                    'sheet_material': sheet_materials.get(sheet_id, "unknown"),
                     'product_id': product_id,
                     'station': completion_station,
                     'machine': completion_machine,
@@ -507,8 +539,8 @@ class OutputGenerator:
 
         with open(output_path, 'w', newline='', encoding='utf-8') as f:
             fieldnames = [
-                'time', 'end_time', 'event_type', 'entity_id', 'sheet_id', 'product_id',
-                'station', 'machine', 'num_parts', 'duration'
+                'time', 'end_time', 'event_type', 'entity_id', 'sheet_id', 'sheet_material',
+                'product_id', 'station', 'machine', 'num_parts', 'duration'
             ]
             writer = csv.DictWriter(f, fieldnames=fieldnames)
             writer.writeheader()
