@@ -459,21 +459,22 @@ def draw_frame(
     ax.text(stats_x, 0.57, f"Completed Products: {total_completed_products}", transform=ax.transAxes, fontsize=10,
             color="darkgreen", fontweight="bold")
 
-    ax.text(stats_x, 0.53, f"Event: {event_type_str}", transform=ax.transAxes, fontsize=10)
-    ax.text(stats_x, 0.50, f"Entity: {entity_str}", transform=ax.transAxes, fontsize=10)
+    ax.text(stats_x, 0.53, f"In-Progress Products: {len(product_progress)}", transform=ax.transAxes, fontsize=10)
+    ax.text(stats_x, 0.50, f"Event: {event_type_str}", transform=ax.transAxes, fontsize=10)
+    ax.text(stats_x, 0.47, f"Entity: {entity_str}", transform=ax.transAxes, fontsize=10)
 
     # --- Product Progress ---
     limit = 8  # Limit to show 8 lines
-    ax.text(stats_x, 0.45, "In-Progress Products", transform=ax.transAxes, fontsize=11, fontweight="bold")
+    ax.text(stats_x, 0.42, "In-Progress Products", transform=ax.transAxes, fontsize=11, fontweight="bold")
 
     # Loop only through the first 'limit' items
     for k, (prod, done, total) in enumerate(product_progress[:limit]):
-        ax.text(stats_x, 0.42 - 0.025 * k, f"{prod}: {done}/{total}", transform=ax.transAxes, fontsize=9)
+        ax.text(stats_x, 0.39 - 0.025 * k, f"{prod}: {done}/{total}", transform=ax.transAxes, fontsize=9)
 
     # Check if there are more products than the limit
     if len(product_progress) > limit:
         remaining = len(product_progress) - limit
-        ax.text(stats_x, 0.42 - 0.025 * limit, f"+ {remaining} more", transform=ax.transAxes, fontsize=9,
+        ax.text(stats_x, 0.39 - 0.025 * limit, f"+ {remaining} more", transform=ax.transAxes, fontsize=9,
                 color="darkgreen")
 
 
