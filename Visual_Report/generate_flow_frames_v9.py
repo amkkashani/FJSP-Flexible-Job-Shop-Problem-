@@ -25,13 +25,18 @@ import bisect
 import json
 import math
 import os
+import sys
 import zipfile
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Dict, List, Tuple, Set
 
 import matplotlib.patches as patches
 import matplotlib.pyplot as plt
 import pandas as pd
+
+# Ensure repo root is on sys.path for local imports when run from this folder
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 # Type Alias for Part Intervals:
 # (start_times, end_times, station_names, machine_indices)
@@ -591,11 +596,12 @@ def generate_flow_frames(
 
 
 def main():
-    script_dir = os.path.dirname(os.path.abspath(__file__))
-    default_config = os.path.join(script_dir, "config", "config.json")
-    default_sheet_parts = os.path.join(script_dir, "sheet_parts.csv")
-    default_events = os.path.join(script_dir, "event_summary.csv")
-    default_outdir = os.path.join(script_dir, "flow_frames_v3")
+    script_dir = Path(__file__).resolve().parent
+    repo_root = script_dir.parent
+    default_config = str(repo_root / "config" / "config.json")
+    default_sheet_parts = str(repo_root / "sheet_parts.csv")
+    default_events = str(repo_root / "event_summary.csv")
+    default_outdir = str(repo_root / "flow_frames_v3")
 
     parser = argparse.ArgumentParser()
     parser.add_argument("--config", default=default_config)

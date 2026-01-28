@@ -5,7 +5,7 @@ from pathlib import Path
 from typing import Dict, List, Tuple, Set
 import json
 
-sys.path.insert(0, str(Path(__file__).parent))
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from models import Problem
 from models.part import Part

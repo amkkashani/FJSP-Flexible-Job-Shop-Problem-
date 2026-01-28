@@ -11,8 +11,8 @@ from models import Problem
 from solvers import GreedySolver
 from evaluation import WeightedEvaluator
 from output_generator import generate_outputs
-from flow_animator import FlowAnimator
-from frame_by_frame import generate_frame_by_frame
+from Visual_Report.flow_animator import FlowAnimator
+from Visual_Report.frame_by_frame import generate_frame_by_frame
 
 
 def main():
@@ -162,7 +162,7 @@ def main():
 
         if generate_flow_frames_v9:
             print("\nGenerating flow frames (v9)...")
-            from generate_flow_frames_v9 import generate_flow_frames
+            from Visual_Report.generate_flow_frames_v9 import generate_flow_frames
             print(f"  Settings: max_frames={flow_frames_max_frames}, zip={flow_frames_zip}")
             sheet_parts_path = output_folder / "sheet_parts.csv"
             events_path = output_folder / "event_summary.csv"
