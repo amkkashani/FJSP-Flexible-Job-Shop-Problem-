@@ -25,6 +25,11 @@ def load_clean(path: str) -> pd.DataFrame:
         "Fbreite": "width",
         "Stueck": "quantity",
         "Unnamed: 15": "ParentWareCode",
+    }
+
+    df = df.rename(columns=mapping)
+
+    station_mapping = {
         "WA": "wa",
         "WF": "wf",
         "WD": "wd",
@@ -33,8 +38,12 @@ def load_clean(path: str) -> pd.DataFrame:
         "WV": "wv",
         "WX": "wx",
     }
-
-    df = df.rename(columns=mapping)
+    for src, dest in station_mapping.items():
+        preferred = f"{src}.1"
+        if preferred in df.columns:
+            df = df.rename(columns={preferred: dest})
+        elif src in df.columns:
+            df = df.rename(columns={src: dest})
 
     out_cols = [
         "ElemIdent",
