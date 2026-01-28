@@ -1,7 +1,7 @@
 """Part model for FJSP."""
 
 from dataclasses import dataclass, field
-from typing import Dict
+from typing import Dict, List
 
 
 @dataclass
@@ -18,6 +18,7 @@ class Part:
         material: Material code (e.g., "NC007 M/AM114")
         product_id: Info8 value - which product this part belongs to
         process_times: Processing time at each station: {"wa": 16, "wf": 13, ...}
+        sequence: Per-part station sequence (lowercase station codes)
     """
     id: str
     elem_ident: str
@@ -27,6 +28,7 @@ class Part:
     material: str
     product_id: str
     process_times: Dict[str, float] = field(default_factory=dict)
+    sequence: List[str] = field(default_factory=list)
 
     def get_process_time(self, station_name: str) -> float:
         """Get processing time for a specific station."""

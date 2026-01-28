@@ -1,6 +1,7 @@
 """Problem model for FJSP."""
 
 import json
+import re
 from dataclasses import dataclass, field
 from typing import Dict, List, Optional
 from pathlib import Path
@@ -98,6 +99,23 @@ class Problem:
 
         # Get station names for process times
         station_names = [s.name for s in stations]
+        station_lookup = {name.upper(): name for name in station_names}
+
+        def extract_sequence(code_value: object) -> List[str]:
+            if code_value is None or pd.isna(code_value):
+                return []
+            code_str = str(code_value)
+            slash_idx = code_str.find("/")
+            if slash_idx == -1:
+                return []
+            backslash_idx = code_str.find("\\", slash_idx + 1)
+            if backslash_idx == -1:
+                return []
+            seq_raw = code_str[slash_idx + 1:backslash_idx]
+            if not seq_raw:
+                return []
+            tokens = [t for t in re.split(r"[^A-Za-z]+", seq_raw) if t]
+            return [station_lookup[t.upper()] for t in tokens if t.upper() in station_lookup]
 
         # 2. Expand parts by quantity
         parts = []
@@ -129,6 +147,10 @@ class Problem:
                         process_times[station_name] = 0.0
 
                 part_id = row_id if quantity == 1 else f"{row_id}_{i + 1:03d}"
+                part_sequence = extract_sequence(row.get("code", ""))
+                if not part_sequence:
+                    part_sequence = list(station_names)
+
                 part = Part(
                     id=part_id,
                     elem_ident=str(row.get("ElemIdent", "")),
@@ -137,7 +159,8 @@ class Problem:
                     area=area_per_part,
                     material=str(row.get("mat", "")),
                     product_id=str(row.get("Info8", "")),
-                    process_times=process_times
+                    process_times=process_times,
+                    sequence=part_sequence
                 )
                 parts.append(part)
 

@@ -148,6 +148,30 @@ class GreedySolver(Solver):
         sorted_stations = sorted(problem.stations)
         sheet_stations = [s for s in sorted_stations if s.sheet]
         part_stations = [s for s in sorted_stations if not s.sheet]
+        station_by_name = {s.name: s for s in sorted_stations}
+        sheet_station_names = [s.name for s in sheet_stations]
+        part_station_names = [s.name for s in part_stations]
+        sheet_station_set = set(sheet_station_names)
+        part_station_set = set(part_station_names)
+
+        def get_sheet_sequence(sheet: Sheet) -> List[Station]:
+            sequences = [p.sequence for p in sheet.assigned_parts if p.sequence]
+            if sequences:
+                ordered: List[str] = []
+                seen = set()
+                for seq in sequences:
+                    for name in seq:
+                        if name in sheet_station_set and name not in seen:
+                            ordered.append(name)
+                            seen.add(name)
+                return [station_by_name[name] for name in ordered]
+            return [station_by_name[name] for name in sheet_station_names]
+
+        def get_part_sequence(part: Part) -> List[Station]:
+            if part.sequence:
+                ordered = [name for name in part.sequence if name in part_station_set]
+                return [station_by_name[name] for name in ordered]
+            return [station_by_name[name] for name in part_station_names]
 
         # Initialize machine availability for each station
         machine_availability: Dict[str, List[float]] = {
@@ -167,7 +191,7 @@ class GreedySolver(Solver):
         for sheet in sheets:
             current_time = 0.0
 
-            for station in sheet_stations:
+            for station in get_sheet_sequence(sheet):
                 workers = max(1, station.workers_per_machine)
                 process_time = sheet.get_station_time(station.name) / workers
 
@@ -223,7 +247,7 @@ class GreedySolver(Solver):
             for part, avail_time, sheet in all_parts_with_times:
                 current_time = part_current_time[part.id]
 
-                for station in part_stations:
+                for station in get_part_sequence(part):
                     workers = max(1, station.workers_per_machine)
                     process_time = part.get_process_time(station.name) / workers
 

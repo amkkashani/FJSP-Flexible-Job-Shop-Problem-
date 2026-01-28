@@ -169,13 +169,35 @@ class Solution:
         if assigned_parts != all_part_ids:
             return False
 
-        # 3. Check station order constraint
-        station_order = {s.name: s.order_index for s in problem.stations}
+        # 3. Check station order constraint (per-sheet sequence-aware)
+        sheet_station_names = [s.name for s in problem.stations if s.sheet]
+        default_sheet_order = [s.name for s in sorted(problem.stations) if s.sheet]
+        sheet_station_set = set(sheet_station_names)
+
+        def get_sheet_order_map(sheet: Sheet) -> Dict[str, int]:
+            sequences = [p.sequence for p in sheet.assigned_parts if p.sequence]
+            if sequences:
+                ordered: List[str] = []
+                seen = set()
+                for seq in sequences:
+                    for name in seq:
+                        if name in sheet_station_set and name not in seen:
+                            ordered.append(name)
+                            seen.add(name)
+                return {name: idx for idx, name in enumerate(ordered)}
+            ordered = list(default_sheet_order)
+            return {name: idx for idx, name in enumerate(ordered)}
+
         for sheet_id, assignments in self.schedule.items():
             prev_end_time = 0.0
             prev_order = -1
+            sheet = self.get_sheet_by_id(sheet_id)
+            order_map = get_sheet_order_map(sheet) if sheet else {n: i for i, n in enumerate(default_sheet_order)}
+
             for assignment in sorted(assignments, key=lambda a: a.start_time):
-                order = station_order.get(assignment.station_name, 0)
+                order = order_map.get(assignment.station_name)
+                if order is None:
+                    return False
                 # Station order must be non-decreasing
                 if order < prev_order:
                     return False
