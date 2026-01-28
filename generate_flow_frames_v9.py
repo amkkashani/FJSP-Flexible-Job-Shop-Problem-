@@ -38,6 +38,14 @@ import pandas as pd
 PartIntervals = Tuple[List[float], List[float], List[str], List[int]]
 
 
+def format_hms(seconds: float) -> str:
+    total_seconds = int(seconds)
+    hours = total_seconds // 3600
+    minutes = (total_seconds % 3600) // 60
+    secs = total_seconds % 60
+    return f"{hours:02d}:{minutes:02d}:{secs:02d}"
+
+
 @dataclass
 class Station:
     """Represents a processing station configuration."""
@@ -312,7 +320,7 @@ def draw_frame(
     # --- Title & Header ---
     ax.text(
         0.5, 0.90,
-        f"Frame {frame_idx} | Time: {current_time:.1f}s | {event_type_str}",
+        f"Frame {frame_idx} | Time: {format_hms(current_time)} | {event_type_str}",
         ha="center", va="center", fontsize=16, fontweight="bold",
         color="darkgreen", transform=ax.transAxes,
     )
