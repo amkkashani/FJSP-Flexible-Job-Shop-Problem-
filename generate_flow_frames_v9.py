@@ -72,6 +72,15 @@ def preprocess(events: pd.DataFrame, sheet_parts: pd.DataFrame):
     part_to_product = dict(zip(sheet_parts["Part ID"], sheet_parts["Product ID"]))
     prod_total = sheet_parts.groupby("Product ID")["Part ID"].nunique().to_dict()
 
+    # Map areas from static sheet definition file
+    part_to_area = dict(zip(sheet_parts["Part ID"], sheet_parts["Area (m2)"].astype(float)))
+    sheet_to_area = (
+        sheet_parts.groupby("Sheet ID")["Area (m2)"]
+        .sum()
+        .astype(float)
+        .to_dict()
+    )
+
     # Calculate when each sheet finishes processing
     sheet_end_times = (
         events.loc[events.event_type == "sheet_end", ["sheet_id", "time"]]
@@ -126,7 +135,9 @@ def preprocess(events: pd.DataFrame, sheet_parts: pd.DataFrame):
         interval_completion_times,
         part_initial_sheet,
         part_complete_timestamps,
-        part_completion_times
+        part_completion_times,
+        part_to_area,
+        sheet_to_area,
     )
 
 
@@ -256,6 +267,8 @@ def draw_frame(
         sheet_waiting: Dict[str, List[str]],
         sheet_active: Dict[str, Tuple[str, int, float, int]],
         product_progress: List[Tuple[str, int, int]],
+        part_area_map: Dict[str, float],
+        sheet_area_map: Dict[str, float],
 ):
     """Renders a single frame of the simulation onto the provided Matplotlib axis."""
     ax.set_axis_off()
@@ -373,16 +386,18 @@ def draw_frame(
                         )
 
         # --- Queues ---
-        queue_y_start = STATION_Y_BASE - 0.10
+        queue_y_start = STATION_Y_BASE - 0.11
         if station.is_sheet:
             queue = sheet_waiting.get(station.name, [])
-            header_text = f"Waiting Sheets: {len(queue)}"
+            queue_area = sum(sheet_area_map.get(sheet_id, 0.0) for sheet_id in queue)
+            header_text = f"Waiting Sheets: {len(queue)}\nArea: {queue_area:.3f} m2"
             color = "navy"
             display_items = queue[:4]
             max_items = 4
         else:
             queue = waiting_parts.get(station.name, [])
-            header_text = f"Waiting Parts: {len(queue)}"
+            queue_area = sum(part_area_map.get(part_id, 0.0) for part_id in queue)
+            header_text = f"Waiting Parts: {len(queue)}\nArea: {queue_area:.3f} m2"
             color = "darkgreen"
             display_items = queue[:10]
             max_items = 10
@@ -392,13 +407,15 @@ def draw_frame(
 
         line_height = 0.03 if station.is_sheet else 0.02
         font_size = 8 if station.is_sheet else 7.5
+        header_lines = header_text.count("\n") + 1
+        items_start = queue_y_start - (line_height * header_lines)
 
         for j, item in enumerate(display_items):
-            ax.text(x_pos + width / 2, queue_y_start - line_height * (j + 1), item, ha="center", va="top",
+            ax.text(x_pos + width / 2, items_start - line_height * j, item, ha="center", va="top",
                     fontsize=font_size, transform=ax.transAxes, color=color)
 
         if len(queue) > max_items:
-            ax.text(x_pos + width / 2, queue_y_start - line_height * (max_items + 1), f"+{len(queue) - max_items} more",
+            ax.text(x_pos + width / 2, items_start - line_height * max_items, f"+{len(queue) - max_items} more",
                     ha="center", va="top", fontsize=font_size, transform=ax.transAxes, color=color)
 
         if i < num_stations - 1:
@@ -478,8 +495,12 @@ def generate_flow_frames(
         interval_completion_times,
         part_sheet,
         part_complete_timestamps,
-        part_completion_times
+        part_completion_times,
+        part_to_area,
+        sheet_to_area,
     ) = preprocess(events_df, sheet_parts_df)
+    part_area_map = part_to_area
+    sheet_area_map = sheet_to_area
 
     # Extract all 'part_complete' events once for efficiency
     all_complete_events = events_df[events_df.event_type == 'part_complete'][['time', 'product_id']]
@@ -538,6 +559,8 @@ def generate_flow_frames(
             sheet_waiting=sheet_waiting,
             sheet_active=sheet_active,
             product_progress=product_progress,
+            part_area_map=part_area_map,
+            sheet_area_map=sheet_area_map,
         )
 
         output_filename = os.path.join(outdir, f"frame_{idx:05d}.png")
