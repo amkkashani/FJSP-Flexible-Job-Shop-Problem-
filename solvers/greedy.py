@@ -51,12 +51,10 @@ class GreedySolver(Solver):
         # Step 1: Sort parts
         sorted_parts = self._sort_parts(problem.parts)
 
-        # Step 2: Pack parts into sheets (bin packing)
+        # Step 2: Pack parts into sheets (bin packing) with material-specific sizes
         sheets = self._pack_parts(
             sorted_parts,
-            problem.sheet_capacity,
-            problem.sheet_width,
-            problem.sheet_height
+            problem
         )
 
         # Step 3: Schedule sheets through stations
@@ -82,18 +80,15 @@ class GreedySolver(Solver):
     def _pack_parts(
         self,
         parts: List[Part],
-        sheet_capacity: float,
-        sheet_width: float,
-        sheet_height: float
+        problem: Problem
     ) -> List[Sheet]:
         """
         Pack parts into sheets using First Fit algorithm.
+        Uses material-specific sheet sizes from problem config.
 
         Args:
             parts: Sorted list of parts
-            sheet_capacity: Maximum capacity per sheet
-            sheet_width: Sheet width in meters
-            sheet_height: Sheet height in meters
+            problem: Problem instance with sheet size configuration
 
         Returns:
             List of sheets with assigned parts
@@ -112,6 +107,10 @@ class GreedySolver(Solver):
 
             # Create new sheet if needed
             if not placed:
+                # Get material-specific sheet size
+                sheet_width, sheet_height, sheet_capacity = problem.get_sheet_size_for_material(
+                    part.material
+                )
                 new_sheet = Sheet(
                     id=f"sheet_{sheet_counter:05d}",
                     capacity=sheet_capacity,

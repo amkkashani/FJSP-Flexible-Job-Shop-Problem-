@@ -4,7 +4,8 @@
       "Bash(python:*)",
       "Bash(cat:*)",
       "Bash(dir /b outputframe_by_frame*.png)",
-      "Bash(ls:*)"
+      "Bash(ls:*)",
+      "Bash(dir /B /O-D \"e:\\\\SajiEnv\\\\Fjsp_Try2\\\\output\")"
     ]
   }
 }
