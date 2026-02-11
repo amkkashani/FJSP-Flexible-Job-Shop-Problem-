@@ -3,16 +3,35 @@
 import sys
 import json
 from pathlib import Path
+from typing import List
 
 # Add project root to path for imports
 sys.path.insert(0, str(Path(__file__).parent))
 
 from models import Problem
+from models.remaining import RemainingSection
 from solvers import GreedySolver
 from evaluation import WeightedEvaluator
 from output_generator import generate_outputs
 from Visual_Report.flow_animator import FlowAnimator
 from Visual_Report.frame_by_frame import generate_frame_by_frame
+
+
+def load_remaining_sections(file_path: str) -> List[RemainingSection]:
+    """
+    Load remaining sections from JSON file.
+
+    Args:
+        file_path: Path to remaining.json file
+
+    Returns:
+        List of RemainingSection objects
+    """
+    if not Path(file_path).exists():
+        return []
+    with open(file_path, 'r') as f:
+        data = json.load(f)
+    return [RemainingSection.from_dict(s) for s in data.get("sections", [])]
 
 
 def main():
@@ -63,12 +82,32 @@ def main():
     evaluator = WeightedEvaluator(alpha=alpha, beta=beta, gamma=gamma)
     print(f"\nEvaluator: {evaluator}")
 
+    # Load remaining sections from previous runs
+    remaining_file = config.get("remaining_file", "config/remaining.json")
+    remaining_sections = load_remaining_sections(remaining_file)
+    print(f"  - Remaining sections loaded: {len(remaining_sections)}")
+
+    # Load remaining filter settings
+    remaining_filter = config.get("remaining_filter", {})
+    remaining_min_width = remaining_filter.get("min_width", 0.1)
+    remaining_min_height = remaining_filter.get("min_height", 0.1)
+    remaining_min_area = remaining_filter.get("min_area", 0.01)
+
     # Create and run solver
-    solver = GreedySolver(sort_by='area_desc')
+    solver = GreedySolver(
+        sort_by='area_desc',
+        remaining_min_width=remaining_min_width,
+        remaining_min_height=remaining_min_height,
+        remaining_min_area=remaining_min_area
+    )
     print(f"Solver: {solver}")
+    print(f"  - Remaining filter: min_width={remaining_min_width}m, min_height={remaining_min_height}m, min_area={remaining_min_area}m²")
 
     print("\nSolving...")
-    solution = solver.solve(problem, evaluator)
+    solution = solver.solve(problem, evaluator, remaining_sections)
+
+    # Print remaining sections summary
+    print(solution.get_remaining_summary())
 
     # Print results
     print(solution.summary(problem))
@@ -94,6 +133,11 @@ def main():
         problem.sheet_width,
         problem.sheet_height
     )
+
+    # Save remaining sections to output folder (user can manually copy to config for next run)
+    remaining_output_path = output_folder / "remaining.json"
+    solution.save_remaining_sections(str(remaining_output_path))
+    print(f"\nRemaining sections saved to: {remaining_output_path}")
 
     # Generate flow animation and Gantt chart based on config
     report_config = config.get("report", {})
@@ -245,7 +289,8 @@ def run_with_sample_data():
     print(f"Solver: {solver}")
 
     print("\nSolving...")
-    solution = solver.solve(problem, evaluator)
+    # No remaining sections for sample data
+    solution = solver.solve(problem, evaluator, [])
 
     # Print results
     print(solution.summary(problem))

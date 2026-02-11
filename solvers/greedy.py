@@ -1,6 +1,7 @@
 """Greedy solver implementation for FJSP."""
 
-from typing import Dict, List, Tuple
+from datetime import datetime
+from typing import Dict, List, Optional, Tuple
 
 from .base import Solver
 from solution.solution import Solution
@@ -10,6 +11,7 @@ from models.problem import Problem
 from models.sheet import Sheet
 from models.part import Part
 from models.station import Station
+from models.remaining import RemainingSection
 from evaluation.base import Evaluator
 
 
@@ -24,7 +26,13 @@ class GreedySolver(Solver):
     3. Schedule sheets through stations in FIFO order
     """
 
-    def __init__(self, sort_by: str = 'area_desc'):
+    def __init__(
+        self,
+        sort_by: str = 'area_desc',
+        remaining_min_width: float = 0.1,
+        remaining_min_height: float = 0.1,
+        remaining_min_area: float = 0.01
+    ):
         """
         Initialize the greedy solver.
 
@@ -34,16 +42,28 @@ class GreedySolver(Solver):
                 - 'area_asc': Sort by area ascending
                 - 'product': Group by product, then by area descending
                 - 'none': No sorting (original order)
+            remaining_min_width: Minimum width (m) for remaining sections
+            remaining_min_height: Minimum height (m) for remaining sections
+            remaining_min_area: Minimum area (m²) for remaining sections
         """
         self.sort_by = sort_by
+        self.remaining_min_width = remaining_min_width
+        self.remaining_min_height = remaining_min_height
+        self.remaining_min_area = remaining_min_area
 
-    def solve(self, problem: Problem, evaluator: Evaluator) -> Solution:
+    def solve(
+        self,
+        problem: Problem,
+        evaluator: Evaluator,
+        remaining_sections: Optional[List[RemainingSection]] = None
+    ) -> Solution:
         """
         Solve the FJSP using greedy approach.
 
         Args:
             problem: The problem instance
             evaluator: The evaluator (used for final evaluation)
+            remaining_sections: Optional list of remaining sections from previous runs
 
         Returns:
             A complete solution
@@ -52,13 +72,19 @@ class GreedySolver(Solver):
         sorted_parts = self._sort_parts(problem.parts)
 
         # Step 2: Pack parts into sheets (bin packing) with material-specific sizes
-        sheets = self._pack_parts(
+        # Also handles remaining sections from previous runs
+        sheets, used_remaining, new_remaining = self._pack_parts(
             sorted_parts,
-            problem
+            problem,
+            remaining_sections or []
         )
 
         # Step 3: Schedule sheets through stations
         solution = self._schedule_sheets(sheets, problem)
+
+        # Step 4: Store remaining sections in solution for later saving
+        solution.remaining_sections = new_remaining
+        solution.used_remaining_sections = used_remaining
 
         # Compute final metrics
         solution.compute_metrics(problem)
@@ -80,21 +106,28 @@ class GreedySolver(Solver):
     def _pack_parts(
         self,
         parts: List[Part],
-        problem: Problem
-    ) -> List[Sheet]:
+        problem: Problem,
+        remaining_sections: List[RemainingSection]
+    ) -> Tuple[List[Sheet], List[RemainingSection], List[RemainingSection]]:
         """
         Pack parts into sheets using First Fit algorithm.
         Uses material-specific sheet sizes from problem config.
+        Tries to use remaining sections from previous runs first.
 
         Args:
             parts: Sorted list of parts
             problem: Problem instance with sheet size configuration
+            remaining_sections: List of remaining sections from previous runs
 
         Returns:
-            List of sheets with assigned parts
+            Tuple of (sheets, used_remaining_sections, new_remaining_sections)
         """
         sheets: List[Sheet] = []
         sheet_counter = 0
+
+        # Track which remaining sections are still available
+        available_remaining = list(remaining_sections)
+        used_remaining: List[RemainingSection] = []
 
         for part in parts:
             placed = False
@@ -107,25 +140,134 @@ class GreedySolver(Solver):
 
             # Create new sheet if needed
             if not placed:
-                # Get material-specific sheet size
-                sheet_width, sheet_height, sheet_capacity = problem.get_sheet_size_for_material(
-                    part.material
-                )
-                new_sheet = Sheet(
-                    id=f"sheet_{sheet_counter:05d}",
-                    capacity=sheet_capacity,
-                    width=sheet_width,
-                    height=sheet_height
-                )
-                if not new_sheet.add_part(part):
-                    raise ValueError(
-                        f"Part {part.id} ({part.length}x{part.width}mm) "
-                        f"cannot fit in sheet {sheet_width}x{sheet_height}m."
-                    )
-                sheets.append(new_sheet)
-                sheet_counter += 1
+                # First, try to use a remaining section
+                remaining_sheet = None
+                part_width_m = part.width / 1000.0
+                part_height_m = part.length / 1000.0
 
-        return sheets
+                for i, remaining in enumerate(available_remaining):
+                    if remaining.can_fit_part(part_width_m, part_height_m, part.material):
+                        # Create a sheet from this remaining section
+                        remaining_sheet = Sheet(
+                            id=f"sheet_{sheet_counter:05d}_from_{remaining.id}",
+                            capacity=remaining.area,
+                            width=remaining.width,
+                            height=remaining.height,
+                            material=remaining.material
+                        )
+                        if remaining_sheet.add_part(part):
+                            sheets.append(remaining_sheet)
+                            sheet_counter += 1
+                            used_remaining.append(remaining)
+                            available_remaining.pop(i)
+                            placed = True
+                            break
+
+                # If no remaining section worked, create a new sheet
+                if not placed:
+                    sheet_width, sheet_height, sheet_capacity = problem.get_sheet_size_for_material(
+                        part.material
+                    )
+                    new_sheet = Sheet(
+                        id=f"sheet_{sheet_counter:05d}",
+                        capacity=sheet_capacity,
+                        width=sheet_width,
+                        height=sheet_height
+                    )
+                    if not new_sheet.add_part(part):
+                        raise ValueError(
+                            f"Part {part.id} ({part.length}x{part.width}mm) "
+                            f"cannot fit in sheet {sheet_width}x{sheet_height}m."
+                        )
+                    sheets.append(new_sheet)
+                    sheet_counter += 1
+
+        # Calculate new remaining sections from sheets
+        new_remaining = self._calculate_remaining_sections(
+            sheets,
+            min_width=self.remaining_min_width,
+            min_height=self.remaining_min_height,
+            min_area=self.remaining_min_area
+        )
+
+        # Add unused remaining sections back to new_remaining
+        new_remaining.extend(available_remaining)
+
+        return sheets, used_remaining, new_remaining
+
+    def _calculate_remaining_sections(
+        self,
+        sheets: List[Sheet],
+        min_width: float = 0.1,
+        min_height: float = 0.1,
+        min_area: float = 0.01
+    ) -> List[RemainingSection]:
+        """
+        Calculate remaining sections from the waste of each sheet.
+        Captures multiple remaining areas per sheet:
+        1. Bottom remaining (below all shelves)
+        2. Right-side remaining for each shelf
+
+        Args:
+            sheets: List of sheets after packing
+            min_width: Minimum width threshold (meters)
+            min_height: Minimum height threshold (meters)
+            min_area: Minimum area threshold (m²)
+
+        Returns:
+            List of remaining sections
+        """
+        remaining_sections: List[RemainingSection] = []
+        timestamp = datetime.now().isoformat()
+        section_counter = 0
+
+        for sheet in sheets:
+            if not sheet._shelves:
+                continue
+
+            material = sheet.get_material()
+
+            # 1. Calculate right-side remaining for each shelf
+            for shelf_idx, shelf in enumerate(sheet._shelves):
+                shelf_remaining_width = sheet.width - shelf["x"]
+                shelf_height = shelf["height"]
+
+                if shelf_remaining_width >= min_width and shelf_height >= min_height:
+                    shelf_area = shelf_remaining_width * shelf_height
+                    if shelf_area >= min_area:
+                        section = RemainingSection(
+                            id=f"rem_{sheet.id}_shelf{shelf_idx}_{section_counter:03d}",
+                            material=material,
+                            width=shelf_remaining_width,
+                            height=shelf_height,
+                            area=shelf_area,
+                            original_sheet_id=sheet.id,
+                            created_at=timestamp
+                        )
+                        remaining_sections.append(section)
+                        section_counter += 1
+
+            # 2. Calculate the bottom remaining section (below all shelves)
+            last_shelf = sheet._shelves[-1]
+            used_height = last_shelf["y"] + last_shelf["height"]
+            remaining_height = sheet.height - used_height
+
+            if remaining_height >= min_height and sheet.width >= min_width:
+                remaining_area = sheet.width * remaining_height
+                if remaining_area >= min_area:
+                    section = RemainingSection(
+                        id=f"rem_{sheet.id}_bottom_{section_counter:03d}",
+                        material=material,
+                        width=sheet.width,
+                        height=remaining_height,
+                        area=remaining_area,
+                        original_sheet_id=sheet.id,
+                        created_at=timestamp
+                    )
+                    remaining_sections.append(section)
+                    section_counter += 1
+
+        return remaining_sections
 
     def _schedule_sheets(self, sheets: List[Sheet], problem: Problem) -> Solution:
         """

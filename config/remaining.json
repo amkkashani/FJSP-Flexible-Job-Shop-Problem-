@@ -1,0 +1,50 @@
+{
+  "_comment": "Remaining sheet sections from previous runs. These can be reused in future runs before creating new sheets.",
+  "sections": [
+    {
+      "id": "rem_sheet_00004_000",
+      "material": "NC008 M/MESHKI",
+      "width": 3.0,
+      "height": 0.399,
+      "area": 1.197,
+      "original_sheet_id": "sheet_00004",
+      "created_at": "2026-02-11T16:29:57.061722"
+    },
+    {
+      "id": "rem_sheet_00006_001",
+      "material": "NC007 M/T72 BETON",
+      "width": 3.0,
+      "height": 1.1,
+      "area": 3.3000000000000003,
+      "original_sheet_id": "sheet_00006",
+      "created_at": "2026-02-11T16:29:57.061722"
+    },
+    {
+      "id": "rem_sheet_00011_002",
+      "material": "NC008 MMESHKI SYNK 112 /",
+      "width": 3.0,
+      "height": 0.6279999999999999,
+      "area": 1.8839999999999997,
+      "original_sheet_id": "sheet_00011",
+      "created_at": "2026-02-11T16:29:57.061722"
+    },
+    {
+      "id": "rem_sheet_00019_003",
+      "material": "NC007 M/CR112",
+      "width": 3.0,
+      "height": 0.504,
+      "area": 1.512,
+      "original_sheet_id": "sheet_00019",
+      "created_at": "2026-02-11T16:29:57.061722"
+    },
+    {
+      "id": "rem_sheet_00020_004",
+      "material": "NC007 M/CR112",
+      "width": 3.0,
+      "height": 0.504,
+      "area": 1.512,
+      "original_sheet_id": "sheet_00020",
+      "created_at": "2026-02-11T16:29:57.061722"
+    }
+  ]
+}

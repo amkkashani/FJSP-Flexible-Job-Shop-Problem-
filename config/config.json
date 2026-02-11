@@ -13,6 +13,13 @@
   "sheet_Y": 2,
   "sheet_X": 3,
   "sheet_sizes_file": "config/sheet_sizes.json",
+  "remaining_file": "config/remaining.json",
+  "remaining_filter": {
+    "_comment": "Minimum thresholds for remaining sections (sections smaller than these are discarded)",
+    "min_width": 0.3,
+    "min_height": 0.3,
+    "min_area": 0.1
+  },
   "evaluator": {
     "alpha": 1.0,
     "beta": 0.5,
