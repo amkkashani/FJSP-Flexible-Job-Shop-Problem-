@@ -65,11 +65,17 @@ def load_stations(config: dict) -> List[Station]:
     """Parses station configurations from the loaded JSON dictionary."""
     stations: List[Station] = []
     for station_cfg in config["stations"]:
+        machines_cfg = station_cfg.get("machines")
+        if isinstance(machines_cfg, list) and machines_cfg:
+            num_machines = len(machines_cfg)
+        else:
+            num_machines = int(station_cfg.get("num_machines", 1))
+
         stations.append(
             Station(
                 name=station_cfg["name"],
                 order_index=int(station_cfg["order_index"]),
-                num_machines=int(station_cfg["num_machines"]),
+                num_machines=max(1, num_machines),
                 is_sheet=bool(station_cfg.get("sheet", False)),
                 workers_per_machine=max(1, int(station_cfg.get("workerPerMachine", 1))),
             )

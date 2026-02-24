@@ -14,13 +14,13 @@ All configuration is stored in `config/config.json`.
 {
   "data_file": "data/5693_cleaned.xlsx",
   "stations": [
-    {"name": "wa", "order_index": 0, "num_machines": 2},
-    {"name": "wf", "order_index": 1, "num_machines": 2},
-    {"name": "wd", "order_index": 2, "num_machines": 1},
-    {"name": "wo", "order_index": 3, "num_machines": 1},
-    {"name": "wg", "order_index": 4, "num_machines": 2},
-    {"name": "wv", "order_index": 5, "num_machines": 1},
-    {"name": "wx", "order_index": 6, "num_machines": 1}
+    {"name": "wa", "order_index": 0, "machines": [{"name": "wa_m1", "speedCoefficient": 1.0}, {"name": "wa_m2", "speedCoefficient": 1.1}]},
+    {"name": "wf", "order_index": 1, "machines": [{"name": "wf_m1", "speedCoefficient": 1.0}, {"name": "wf_m2", "speedCoefficient": 1.0}]},
+    {"name": "wd", "order_index": 2, "machines": [{"name": "wd_m1", "speedCoefficient": 1.0}]},
+    {"name": "wo", "order_index": 3, "machines": [{"name": "wo_m1", "speedCoefficient": 1.0}]},
+    {"name": "wg", "order_index": 4, "machines": [{"name": "wg_m1", "speedCoefficient": 1.0}, {"name": "wg_m2", "speedCoefficient": 0.9}]},
+    {"name": "wv", "order_index": 5, "machines": [{"name": "wv_m1", "speedCoefficient": 1.0}]},
+    {"name": "wx", "order_index": 6, "machines": [{"name": "wx_m1", "speedCoefficient": 1.0}]}
   ],
   "sheet_capacity": 3.6,
   "sheet_X": 2,
@@ -74,7 +74,9 @@ Each station object has:
 |-------|------|----------|-------------|
 | `name` | string | Yes | Station code (must match column names in data file) |
 | `order_index` | int | Yes | Processing sequence position (0 = first) |
-| `num_machines` | int | No | Number of parallel machines (default: 1) |
+| `machines` | array[object] | Yes (recommended) | Explicit machine configs with `name` and `speedCoefficient` |
+| `num_machines` | int | Legacy | Backward-compatible machine count if `machines` is omitted |
+| `machineSpeedCoefficients` | array[float] | Legacy | Backward-compatible speed list if `machines` is omitted |
 
 #### Station Order
 
@@ -86,12 +88,32 @@ wa (0) → wf (1) → wd (2) → wo (3) → wg (4) → wv (5) → wx (6)
 
 #### Parallel Machines
 
-If a station has `num_machines > 1`, multiple sheets can be processed simultaneously at that station.
+If a station has multiple entries in `machines`, multiple sheets can be processed simultaneously at that station.
 
 ```json
-{"name": "wa", "order_index": 0, "num_machines": 2}  // 2 parallel machines
-{"name": "wd", "order_index": 2, "num_machines": 1}  // 1 machine (bottleneck)
+{"name": "wa", "order_index": 0, "machines": [{"name": "wa_m1", "speedCoefficient": 1.0}, {"name": "wa_m2", "speedCoefficient": 1.0}]}
+{"name": "wd", "order_index": 2, "machines": [{"name": "wd_m1", "speedCoefficient": 1.0}]}
 ```
+
+#### Machine Speed Coefficients
+
+Use `machines` to define name + speed for each machine at a station:
+
+```json
+{"name": "wf", "order_index": 1, "machines": [{"name": "wf_m1", "speedCoefficient": 1.0}, {"name": "wf_m2", "speedCoefficient": 1.2}]}
+```
+
+- `1.0` = baseline speed
+- `1.2` = 20% faster (shorter duration)
+- `0.8` = 20% slower (longer duration)
+
+Runtime is scaled as:
+
+```
+effective_time = base_station_time / (workers_per_machine * machine_speed_coefficient)
+```
+
+If speed is omitted, it defaults to `1.0`.
 
 ---
 
@@ -356,7 +378,7 @@ solver = GreedySolver(sort_by='area_desc')
 {
   "data_file": "data/parts.xlsx",
   "stations": [
-    {"name": "wa", "order_index": 0, "num_machines": 1}
+    {"name": "wa", "order_index": 0, "num_machines": 1, "machineSpeedCoefficients": [1.0]}
   ],
   "sheet_capacity": 5.0
 }
@@ -368,13 +390,13 @@ solver = GreedySolver(sort_by='area_desc')
 {
   "data_file": "data/production.xlsx",
   "stations": [
-    {"name": "wa", "order_index": 0, "num_machines": 4},
-    {"name": "wf", "order_index": 1, "num_machines": 4},
-    {"name": "wd", "order_index": 2, "num_machines": 2},
-    {"name": "wo", "order_index": 3, "num_machines": 2},
-    {"name": "wg", "order_index": 4, "num_machines": 4},
-    {"name": "wv", "order_index": 5, "num_machines": 2},
-    {"name": "wx", "order_index": 6, "num_machines": 2}
+    {"name": "wa", "order_index": 0, "num_machines": 4, "machineSpeedCoefficients": [1.0, 1.0, 1.1, 1.1]},
+    {"name": "wf", "order_index": 1, "num_machines": 4, "machineSpeedCoefficients": [1.0, 1.0, 1.0, 1.0]},
+    {"name": "wd", "order_index": 2, "num_machines": 2, "machineSpeedCoefficients": [1.0, 0.95]},
+    {"name": "wo", "order_index": 3, "num_machines": 2, "machineSpeedCoefficients": [1.0, 1.0]},
+    {"name": "wg", "order_index": 4, "num_machines": 4, "machineSpeedCoefficients": [1.0, 1.0, 1.05, 1.05]},
+    {"name": "wv", "order_index": 5, "num_machines": 2, "machineSpeedCoefficients": [1.0, 1.0]},
+    {"name": "wx", "order_index": 6, "num_machines": 2, "machineSpeedCoefficients": [1.0, 1.0]}
   ],
   "sheet_capacity": 3.6,
   "sheet_X": 2,
@@ -388,7 +410,7 @@ solver = GreedySolver(sort_by='area_desc')
 {
   "data_file": "data/large_parts.xlsx",
   "stations": [
-    {"name": "wa", "order_index": 0, "num_machines": 2}
+    {"name": "wa", "order_index": 0, "num_machines": 2, "machineSpeedCoefficients": [1.0, 1.1]}
   ],
   "sheet_capacity": 6.0,
   "sheet_X": 3,

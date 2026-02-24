@@ -84,6 +84,29 @@ print(product.num_parts())  # 3
 
 ---
 
+### Machine
+
+```python
+from models import Machine
+```
+
+Represents a single machine in a station.
+
+#### Attributes
+
+| Attribute | Type | Description |
+|-----------|------|-------------|
+| `name` | str | Machine name (e.g., "wf_m1") |
+| `speed_coefficient` | float | Processing speed multiplier (default: 1.0) |
+
+#### Example
+
+```python
+machine = Machine(name="wf_m2", speed_coefficient=1.15)
+```
+
+---
+
 ### Station
 
 ```python
@@ -98,12 +121,23 @@ A processing station with one or more parallel machines.
 |-----------|------|-------------|
 | `name` | str | Station code (wa, wf, wd, wo, wg, wv, wx) |
 | `order_index` | int | Position in processing sequence (0-6) |
-| `num_machines` | int | Number of parallel machines (default: 1) |
+| `num_machines` | int | Number of machines (derived from machine list) |
+| `workers_per_machine` | int | Number of workers assigned to each machine (default: 1) |
+| `machines` | List[Machine] | Per-machine configuration (name + speed) |
 
 #### Example
 
 ```python
-station = Station(name="wa", order_index=0, num_machines=2)
+station = Station(
+    name="wa",
+    order_index=0,
+    num_machines=2,
+    workers_per_machine=2,
+    machines=[
+        Machine(name="wa_m1", speed_coefficient=1.0),
+        Machine(name="wa_m2", speed_coefficient=1.2)
+    ]
+)
 ```
 
 ---

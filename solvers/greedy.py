@@ -318,33 +318,30 @@ class GreedySolver(Solver):
             current_time = 0.0
 
             for station in get_sheet_sequence(sheet):
-                workers = max(1, station.workers_per_machine)
-                process_time = sheet.get_station_time(station.name) / workers
+                base_process_time = sheet.get_station_time(station.name)
 
                 # Skip station if process time is 0
-                if process_time <= 0:
+                if base_process_time <= 0:
                     continue
 
-                # Find earliest available machine
-                earliest_machine, earliest_free = self._find_earliest_machine(
-                    machine_availability[station.name]
+                machine_index, start_time, end_time = self._find_best_machine_assignment(
+                    machine_availability[station.name],
+                    station=station,
+                    earliest_start=current_time,
+                    base_process_time=base_process_time
                 )
-
-                # Sheet can start when: (1) previous station done AND (2) machine is free
-                start_time = max(current_time, earliest_free)
-                end_time = start_time + process_time
 
                 # Create assignment
                 assignment = SheetAssignment(
                     station_name=station.name,
-                    machine_index=earliest_machine,
+                    machine_index=machine_index,
                     start_time=start_time,
                     end_time=end_time
                 )
                 solution.add_assignment(sheet.id, assignment)
 
                 # Update machine availability
-                machine_availability[station.name][earliest_machine] = end_time
+                machine_availability[station.name][machine_index] = end_time
 
                 # Update current time for next station
                 current_time = end_time
@@ -374,34 +371,31 @@ class GreedySolver(Solver):
                 current_time = part_current_time[part.id]
 
                 for station in get_part_sequence(part):
-                    workers = max(1, station.workers_per_machine)
-                    process_time = part.get_process_time(station.name) / workers
+                    base_process_time = part.get_process_time(station.name)
 
                     # Skip station if process time is 0
-                    if process_time <= 0:
+                    if base_process_time <= 0:
                         continue
 
-                    # Find earliest available machine
-                    earliest_machine, earliest_free = self._find_earliest_machine(
-                        machine_availability[station.name]
+                    machine_index, start_time, end_time = self._find_best_machine_assignment(
+                        machine_availability[station.name],
+                        station=station,
+                        earliest_start=current_time,
+                        base_process_time=base_process_time
                     )
-
-                    # Part can start when: (1) previous station done AND (2) machine is free
-                    start_time = max(current_time, earliest_free)
-                    end_time = start_time + process_time
 
                     # Create part assignment
                     assignment = PartAssignment(
                         part_id=part.id,
                         station_name=station.name,
-                        machine_index=earliest_machine,
+                        machine_index=machine_index,
                         start_time=start_time,
                         end_time=end_time
                     )
                     solution.add_part_assignment(part.id, assignment)
 
                     # Update machine availability
-                    machine_availability[station.name][earliest_machine] = end_time
+                    machine_availability[station.name][machine_index] = end_time
 
                     # Update current time for next station
                     current_time = end_time
@@ -411,15 +405,42 @@ class GreedySolver(Solver):
 
         return solution
 
-    def _find_earliest_machine(self, machine_times: List[float]) -> Tuple[int, float]:
-        """Find the machine with earliest availability."""
-        earliest_machine = 0
-        earliest_free = machine_times[0]
-        for i, free_time in enumerate(machine_times):
-            if free_time < earliest_free:
-                earliest_free = free_time
-                earliest_machine = i
-        return earliest_machine, earliest_free
+    def _find_best_machine_assignment(
+        self,
+        machine_times: List[float],
+        station: Station,
+        earliest_start: float,
+        base_process_time: float
+    ) -> Tuple[int, float, float]:
+        """
+        Choose machine that yields the earliest completion time.
+
+        Effective duration = base_process_time / (workers_per_machine * machine_speed_coefficient)
+        """
+        workers = max(1, station.workers_per_machine)
+
+        best_machine = 0
+        best_start = max(earliest_start, machine_times[0])
+        best_duration = base_process_time / (workers * station.get_machine_speed(0))
+        best_end = best_start + best_duration
+
+        for machine_index, free_time in enumerate(machine_times):
+            speed = station.get_machine_speed(machine_index)
+            duration = base_process_time / (workers * speed)
+            start_time = max(earliest_start, free_time)
+            end_time = start_time + duration
+
+            if end_time < best_end - 1e-9:
+                best_machine = machine_index
+                best_start = start_time
+                best_end = end_time
+                continue
+            if abs(end_time - best_end) <= 1e-9 and start_time < best_start - 1e-9:
+                best_machine = machine_index
+                best_start = start_time
+                best_end = end_time
+
+        return best_machine, best_start, best_end
 
     def __repr__(self) -> str:
         return f"GreedySolver(sort_by={self.sort_by})"

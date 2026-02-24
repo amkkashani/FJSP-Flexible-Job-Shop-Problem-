@@ -10,6 +10,7 @@ import pandas as pd
 
 from .part import Part
 from .product import Product
+from .machine import Machine
 from .station import Station
 
 
@@ -110,16 +111,83 @@ class Problem:
             Problem instance
         """
         # 1. Create stations
-        stations = [
-            Station(
-                name=s["name"],
-                order_index=s["order_index"],
-                num_machines=s.get("num_machines", 1),
-                workers_per_machine=max(1, int(s.get("workerPerMachine", 1))),
-                sheet=s.get("sheet", True)
+        def parse_machine_speed_coefficients(
+            station_cfg: dict,
+            num_machines: int
+        ) -> List[float]:
+            speeds = station_cfg.get("machine_speed_coefficients")
+            if speeds is None:
+                speeds = station_cfg.get("machineSpeedCoefficients")
+            if speeds is None:
+                station_speed = station_cfg.get("speed_coefficient")
+                if station_speed is None:
+                    station_speed = station_cfg.get("speedCoefficient", 1.0)
+                return [float(station_speed)] * num_machines
+
+            if isinstance(speeds, (int, float)):
+                return [float(speeds)] * num_machines
+
+            if isinstance(speeds, list):
+                return [float(value) for value in speeds]
+
+            raise ValueError(
+                f"Invalid machine speed config for station '{station_cfg.get('name', 'unknown')}'. "
+                "Use a number or a list of numbers."
             )
-            for s in station_config["stations"]
-        ]
+
+        def parse_station_machines(station_cfg: dict) -> List[Machine]:
+            station_name = str(station_cfg.get("name", "station"))
+            machines_cfg = station_cfg.get("machines")
+            if machines_cfg is not None:
+                if not isinstance(machines_cfg, list) or not machines_cfg:
+                    raise ValueError(
+                        f"Station '{station_name}' must define non-empty 'machines' list."
+                    )
+                machines: List[Machine] = []
+                for idx, machine_cfg in enumerate(machines_cfg, start=1):
+                    if isinstance(machine_cfg, dict):
+                        machine_name = machine_cfg.get("name", f"{station_name}_m{idx}")
+                        speed = machine_cfg.get("speed")
+                        if speed is None:
+                            speed = machine_cfg.get("speed_coefficient")
+                        if speed is None:
+                            speed = machine_cfg.get("speedCoefficient", 1.0)
+                        machines.append(
+                            Machine(name=machine_name, speed_coefficient=float(speed))
+                        )
+                        continue
+                    raise ValueError(
+                        f"Station '{station_name}' machine at index {idx - 1} must be an object."
+                    )
+                return machines
+
+            # Backward compatibility: build machine objects from legacy count/speed list
+            num_machines = max(1, int(station_cfg.get("num_machines", 1)))
+            speeds = parse_machine_speed_coefficients(station_cfg, num_machines)
+            machines = []
+            for i in range(num_machines):
+                speed = speeds[i] if i < len(speeds) else 1.0
+                machines.append(
+                    Machine(
+                        name=f"{station_name}_m{i + 1}",
+                        speed_coefficient=float(speed)
+                    )
+                )
+            return machines
+
+        stations: List[Station] = []
+        for s in station_config["stations"]:
+            machines = parse_station_machines(s)
+            stations.append(
+                Station(
+                    name=s["name"],
+                    order_index=s["order_index"],
+                    num_machines=len(machines),
+                    workers_per_machine=max(1, int(s.get("workerPerMachine", 1))),
+                    machines=machines,
+                    sheet=s.get("sheet", True)
+                )
+            )
         stations.sort(key=lambda s: s.order_index)
 
         # Get station names for process times

@@ -161,13 +161,13 @@ The configuration file `config/config.json` contains all settings:
 {
   "data_file": "data/5693_cleaned.xlsx",
   "stations": [
-    {"name": "wa", "order_index": 0, "num_machines": 2},
-    {"name": "wf", "order_index": 1, "num_machines": 2},
-    {"name": "wd", "order_index": 2, "num_machines": 1},
-    {"name": "wo", "order_index": 3, "num_machines": 1},
-    {"name": "wg", "order_index": 4, "num_machines": 2},
-    {"name": "wv", "order_index": 5, "num_machines": 1},
-    {"name": "wx", "order_index": 6, "num_machines": 1}
+    {"name": "wa", "order_index": 0, "machines": [{"name": "wa_m1", "speedCoefficient": 1.0}, {"name": "wa_m2", "speedCoefficient": 1.1}]},
+    {"name": "wf", "order_index": 1, "machines": [{"name": "wf_m1", "speedCoefficient": 1.0}, {"name": "wf_m2", "speedCoefficient": 1.0}]},
+    {"name": "wd", "order_index": 2, "machines": [{"name": "wd_m1", "speedCoefficient": 1.0}]},
+    {"name": "wo", "order_index": 3, "machines": [{"name": "wo_m1", "speedCoefficient": 1.0}]},
+    {"name": "wg", "order_index": 4, "machines": [{"name": "wg_m1", "speedCoefficient": 1.0}, {"name": "wg_m2", "speedCoefficient": 0.95}]},
+    {"name": "wv", "order_index": 5, "machines": [{"name": "wv_m1", "speedCoefficient": 1.0}]},
+    {"name": "wx", "order_index": 6, "machines": [{"name": "wx_m1", "speedCoefficient": 1.0}]}
   ],
   "sheet_capacity": 3.6,
   "sheet_X": 2,
@@ -183,7 +183,8 @@ The configuration file `config/config.json` contains all settings:
 | `stations` | array | List of station configurations |
 | `stations[].name` | string | Station code (wa, wf, wd, wo, wg, wv, wx) |
 | `stations[].order_index` | int | Position in processing sequence (0-6) |
-| `stations[].num_machines` | int | Number of parallel machines |
+| `stations[].machines` | array[object] | Machines with `{name, speedCoefficient}` |
+| `stations[].num_machines` | int | Legacy machine count (if `machines` omitted) |
 | `sheet_capacity` | float | Maximum sheet area in m² |
 | `sheet_X` | float | Sheet width in meters |
 | `sheet_Y` | float | Sheet height in meters |
@@ -321,7 +322,9 @@ A processing station with parallel machines.
 class Station:
     name: str           # Station code
     order_index: int    # Position in sequence (0-6)
-    num_machines: int   # Parallel machines
+    num_machines: int   # Derived from machine list
+    workers_per_machine: int
+    machines: list[Machine]
 ```
 
 ### Solution
@@ -354,8 +357,9 @@ class Solution:
 2. For each sheet (in order):
    - For each station (in order wa → wx):
      - Calculate processing time (sum of part times)
+     - Adjust duration by workers and machine speed coefficient
      - Skip if processing time is 0
-     - Find earliest available machine
+     - Pick the machine with earliest completion time
      - Schedule: start = max(previous_station_end, machine_available)
      - Update machine availability
 

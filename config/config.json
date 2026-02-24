@@ -1,13 +1,13 @@
 {
   "data_file": "data/5693_cleaned.xlsx",
   "stations": [
-    {"name": "wa", "order_index": 0, "num_machines": 1, "workerPerMachine": 2, "sheet": true},
-    {"name": "wf", "order_index": 1, "num_machines": 2, "workerPerMachine": 2, "sheet": false},
-    {"name": "wd", "order_index": 2, "num_machines": 1, "workerPerMachine": 1, "sheet": false},
-    {"name": "wo", "order_index": 3, "num_machines": 1, "workerPerMachine": 1, "sheet": false},
-    {"name": "wg", "order_index": 4, "num_machines": 2, "workerPerMachine": 2, "sheet": false},
-    {"name": "wv", "order_index": 5, "num_machines": 1, "workerPerMachine": 1, "sheet": false},
-    {"name": "wx", "order_index": 6, "num_machines": 1, "workerPerMachine": 1, "sheet": false}
+    {"name": "wa", "order_index": 0, "workerPerMachine": 2, "machines": [{"name": "wa_m1", "speedCoefficient": 1.0}], "sheet": true},
+    {"name": "wf", "order_index": 1, "workerPerMachine": 2, "machines": [{"name": "wf_m1", "speedCoefficient": 1.0}, {"name": "wf_m2", "speedCoefficient": 1.15}], "sheet": false},
+    {"name": "wd", "order_index": 2, "workerPerMachine": 1, "machines": [{"name": "wd_m1", "speedCoefficient": 1.0}], "sheet": false},
+    {"name": "wo", "order_index": 3, "workerPerMachine": 1, "machines": [{"name": "wo_m1", "speedCoefficient": 1.0}], "sheet": false},
+    {"name": "wg", "order_index": 4, "workerPerMachine": 2, "machines": [{"name": "wg_m1", "speedCoefficient": 1.0}, {"name": "wg_m2", "speedCoefficient": 1.05}], "sheet": false},
+    {"name": "wv", "order_index": 5, "workerPerMachine": 1, "machines": [{"name": "wv_m1", "speedCoefficient": 1.0}], "sheet": false},
+    {"name": "wx", "order_index": 6, "workerPerMachine": 1, "machines": [{"name": "wx_m1", "speedCoefficient": 1.0}], "sheet": false}
   ],
   "sheet_capacity": 6,
   "sheet_Y": 2,
