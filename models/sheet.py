@@ -12,6 +12,9 @@ class Sheet:
     Parts are assigned to sheets based on area capacity.
     The sheet is the unit that moves through stations.
 
+    Also used to represent remaining (leftover) sections from previous runs.
+    When is_remaining=True, this sheet originated from waste of a previous sheet.
+
     Attributes:
         id: Unique identifier (e.g., "sheet_001")
         capacity: Maximum area in m²
@@ -19,6 +22,9 @@ class Sheet:
         height: Sheet height in meters
         material: Material code for all parts in this sheet
         assigned_parts: Parts assigned to this sheet
+        is_remaining: Whether this sheet is a remaining section from a previous run
+        origin_history: Full ancestry chain of sheet IDs this descended from
+        created_at: Timestamp when this remaining was created (None for fresh sheets)
     """
     id: str
     capacity: float
@@ -28,6 +34,9 @@ class Sheet:
     assigned_parts: List[Part] = field(default_factory=list)
     placements: Dict[str, Tuple[float, float, float, float, bool]] = field(default_factory=dict)
     _shelves: List[Dict[str, float]] = field(default_factory=list, repr=False)
+    is_remaining: bool = False
+    origin_history: List[str] = field(default_factory=list)
+    created_at: Optional[str] = None
 
     def total_area(self) -> float:
         """Sum of areas of all assigned parts."""
@@ -157,11 +166,53 @@ class Sheet:
         """Return list of part IDs in this sheet."""
         return [part.id for part in self.assigned_parts]
 
+    def to_remaining_dict(self) -> Dict:
+        """Serialize this sheet as a remaining section for JSON storage."""
+        return {
+            "id": self.id,
+            "material": self.get_material(),
+            "width": self.width,
+            "height": self.height,
+            "capacity": self.capacity,
+            "origin_history": list(self.origin_history),
+            "created_at": self.created_at
+        }
+
+    @classmethod
+    def from_remaining_dict(cls, data: Dict) -> 'Sheet':
+        """
+        Create a Sheet from a remaining-section dictionary (loaded from JSON).
+
+        Backwards-compatible: accepts both new format (origin_history list)
+        and old format (original_sheet_id string). Also accepts 'area' as
+        alias for 'capacity'.
+        """
+        capacity = float(data.get("capacity", data.get("area", 0)))
+        if capacity == 0:
+            capacity = float(data.get("width", 0)) * float(data.get("height", 0))
+
+        # Handle backwards compatibility for origin tracking
+        origin_history = data.get("origin_history", [])
+        if not origin_history and data.get("original_sheet_id"):
+            origin_history = [data["original_sheet_id"]]
+
+        return cls(
+            id=data["id"],
+            capacity=capacity,
+            width=float(data["width"]),
+            height=float(data["height"]),
+            material=data.get("material"),
+            is_remaining=True,
+            origin_history=origin_history,
+            created_at=data.get("created_at")
+        )
+
     def __repr__(self) -> str:
         material = self.get_material()
         material_label = material if material else "unknown"
+        remaining_label = " [REMAINING]" if self.is_remaining else ""
         return (f"Sheet(id={self.id}, parts={self.num_parts()}, "
                 f"material={material_label}, "
-                f"used={self.total_area():.4f}/{self.capacity:.4f}mAı, "
-                f"waste={self.waste():.4f}mAı, "
-                f"size={self.width}x{self.height}m)")
+                f"used={self.total_area():.4f}/{self.capacity:.4f}m², "
+                f"waste={self.waste():.4f}m², "
+                f"size={self.width}x{self.height}m{remaining_label})")

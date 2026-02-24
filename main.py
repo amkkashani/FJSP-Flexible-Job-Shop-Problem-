@@ -9,7 +9,7 @@ from typing import List
 sys.path.insert(0, str(Path(__file__).parent))
 
 from models import Problem
-from models.remaining import RemainingSection
+from models.sheet import Sheet
 from solvers import GreedySolver
 from evaluation import WeightedEvaluator
 from output_generator import generate_outputs
@@ -17,21 +17,24 @@ from Visual_Report.flow_animator import FlowAnimator
 from Visual_Report.frame_by_frame import generate_frame_by_frame
 
 
-def load_remaining_sections(file_path: str) -> List[RemainingSection]:
+def load_remaining_sections(file_path: str) -> List[Sheet]:
     """
-    Load remaining sections from JSON file.
+    Load remaining sections from JSON file as Sheet objects.
+
+    Backwards-compatible: handles both old format (original_sheet_id, area)
+    and new format (origin_history, capacity).
 
     Args:
         file_path: Path to remaining.json file
 
     Returns:
-        List of RemainingSection objects
+        List of Sheet objects with is_remaining=True
     """
     if not Path(file_path).exists():
         return []
     with open(file_path, 'r') as f:
         data = json.load(f)
-    return [RemainingSection.from_dict(s) for s in data.get("sections", [])]
+    return [Sheet.from_remaining_dict(s) for s in data.get("sections", [])]
 
 
 def main():
@@ -82,10 +85,10 @@ def main():
     evaluator = WeightedEvaluator(alpha=alpha, beta=beta, gamma=gamma)
     print(f"\nEvaluator: {evaluator}")
 
-    # Load remaining sections from previous runs
+    # Load remaining sheets from previous runs
     remaining_file = config.get("remaining_file", "config/remaining.json")
-    remaining_sections = load_remaining_sections(remaining_file)
-    print(f"  - Remaining sections loaded: {len(remaining_sections)}")
+    remaining_sheets = load_remaining_sections(remaining_file)
+    print(f"  - Remaining sheets loaded: {len(remaining_sheets)}")
 
     # Load remaining filter settings
     remaining_filter = config.get("remaining_filter", {})
@@ -104,7 +107,7 @@ def main():
     print(f"  - Remaining filter: min_width={remaining_min_width}m, min_height={remaining_min_height}m, min_area={remaining_min_area}m²")
 
     print("\nSolving...")
-    solution = solver.solve(problem, evaluator, remaining_sections)
+    solution = solver.solve(problem, evaluator, remaining_sheets)
 
     # Print remaining sections summary
     print(solution.get_remaining_summary())

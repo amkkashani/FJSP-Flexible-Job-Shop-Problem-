@@ -2,15 +2,12 @@
 
 import json
 from dataclasses import dataclass, field
-from typing import Dict, List, Optional, Set, TYPE_CHECKING
+from typing import Dict, List, Optional, Set
 
 from models.sheet import Sheet
 from models.problem import Problem
 from .assignment import SheetAssignment
 from .part_assignment import PartAssignment
-
-if TYPE_CHECKING:
-    from models.remaining import RemainingSection
 
 
 @dataclass
@@ -24,15 +21,15 @@ class Solution:
         schedule: For each sheet_id: list of assignments at each station (for sheet-based stations)
         part_schedule: For each part_id: list of assignments at each station (for part-based stations)
         metrics: Computed metrics (populated after evaluation)
-        remaining_sections: Remaining sections to save for future runs
-        used_remaining_sections: Remaining sections that were used from previous runs
+        remaining_sections: Remaining sheets to save for future runs (is_remaining=True)
+        used_remaining_sections: Remaining sheets that were used from previous runs
     """
     sheets: List[Sheet] = field(default_factory=list)
     schedule: Dict[str, List[SheetAssignment]] = field(default_factory=dict)
     part_schedule: Dict[str, List[PartAssignment]] = field(default_factory=dict)
     metrics: Dict[str, float] = field(default_factory=dict)
-    remaining_sections: List['RemainingSection'] = field(default_factory=list)
-    used_remaining_sections: List['RemainingSection'] = field(default_factory=list)
+    remaining_sections: List[Sheet] = field(default_factory=list)
+    used_remaining_sections: List[Sheet] = field(default_factory=list)
 
     def get_makespan(self) -> float:
         """Time when last sheet/part finishes last station."""
@@ -279,7 +276,7 @@ class Solution:
         """
         data = {
             "_comment": "Remaining sheet sections from previous runs. These can be reused in future runs before creating new sheets.",
-            "sections": [section.to_dict() for section in self.remaining_sections]
+            "sections": [section.to_remaining_dict() for section in self.remaining_sections]
         }
         with open(file_path, 'w') as f:
             json.dump(data, f, indent=2)
@@ -287,12 +284,15 @@ class Solution:
     def get_remaining_summary(self) -> str:
         """Get a summary of remaining sections."""
         lines = [
-            f"Used {len(self.used_remaining_sections)} remaining sections from previous runs",
-            f"Generated {len(self.remaining_sections)} new remaining sections for future runs"
+            f"Used {len(self.used_remaining_sections)} remaining sheets from previous runs",
+            f"Generated {len(self.remaining_sections)} remaining sheets for future runs"
         ]
         if self.remaining_sections:
-            total_area = sum(s.area for s in self.remaining_sections)
+            total_area = sum(s.capacity for s in self.remaining_sections)
             lines.append(f"Total remaining area: {total_area:.4f} m²")
+        for s in self.remaining_sections:
+            history = " -> ".join(s.origin_history) if s.origin_history else "N/A"
+            lines.append(f"  {s.id} ({s.width:.2f}x{s.height:.2f}m, {s.capacity:.4f}m²) origin: {history}")
         return "\n".join(lines)
 
     def __repr__(self) -> str:
